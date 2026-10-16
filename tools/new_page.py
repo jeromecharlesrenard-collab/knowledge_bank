@@ -68,7 +68,7 @@ def add_index_entry(root: Path, name: str, desc: str, href: str, added: str) -> 
         href=html.escape(href), name=html.escape(name), desc=html.escape(desc), added=added
     )
     text = text[: match.end(2)] + block + text[match.end(2):]
-    index.write_text(text, encoding="utf-8")
+    index.write_text(text, encoding="utf-8", newline="\n")
     log.info("Added %s to index.html", href)
 
 
@@ -96,7 +96,7 @@ def create_page(
         "TITLE": title, "DESCRIPTION": description, "SOURCE": source, "DATE": added,
     }.items():
         page = page.replace("{{" + key + "}}", html.escape(value))
-    target.write_text(page, encoding="utf-8")
+    target.write_text(page, encoding="utf-8", newline="\n")
     log.info("Created %s", target)
 
     add_index_entry(root, title, description, filename, added)
