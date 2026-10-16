@@ -206,6 +206,68 @@ h2 {
 }
 .row-card.expanded .expand-btn svg { transform: rotate(180deg); }
 
+/* ---------- Section navigation, cross-links ---------- */
+html { scroll-behavior: smooth; }
+h2[id] { scroll-margin-top: 20px; }
+.section-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 10px;
+  margin: -12px 0 8px;
+}
+.section-nav a {
+  border: 1px solid #000000;
+  border-radius: 14px;
+  padding: 3px 14px;
+  color: #000000;
+  font-size: 14px;
+  font-weight: bold;
+  text-decoration: none;
+  transition: background 0.15s ease;
+}
+.section-nav a:hover,
+.section-nav a:focus-visible { background: #f0f0f0; }
+.xref {
+  color: #000000;
+  font-weight: bold;
+  text-decoration: underline;
+  white-space: nowrap;
+}
+
+/* ---------- Timeline: <div class="timeline"><div class="era"> ---------- */
+.timeline {
+  border-left: 3px solid #000000;
+  margin-left: 6px;
+  padding-left: 24px;
+}
+.era { position: relative; }
+.era + .era { margin-top: 26px; }
+.era-title {
+  margin: 0 0 10px;
+  font-size: 18px;
+  font-weight: bold;
+}
+.era-title::before {
+  content: "";
+  position: absolute;
+  left: -36px;  /* centered on the 3px timeline line */
+  top: 3px;
+  width: 15px;
+  height: 15px;
+  border: 3px solid #000000;
+  border-radius: 50%;
+  background: #ffffff;
+}
+.era-dates {
+  font-size: 15px;
+  font-weight: normal;
+  margin-left: 8px;
+}
+
+/* ---------- Compact cards (short title + text) ---------- */
+.card.compact { padding: 16px 22px; }
+.card.compact h3 { font-size: 18px; margin-bottom: 6px; }
+
 /* ---------- Stat boxes ---------- */
 .stats {
   display: grid;
