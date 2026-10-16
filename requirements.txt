@@ -1,0 +1,9 @@
+# Development tools only - the website itself needs no Python.
+pytest==9.1.1
+pillow==12.3.0
+# installed automatically with pytest
+colorama==0.4.6
+iniconfig==2.3.1
+packaging==26.3
+pluggy==1.7.0
+Pygments==2.21.0

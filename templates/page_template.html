@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{TITLE}}</title>
+<link rel="icon" type="image/png" href="assets/knowledge_bank.png">
+<link rel="stylesheet" href="assets/kb_style.css">
+<script src="kb_config.js"></script>
+<script src="assets/kb_common.js"></script>
+</head>
+<body>
+<a class="return-arrow" href="index.html" title="Back to JCR Knowledge Bank" aria-label="Back to JCR Knowledge Bank"><img src="assets/return_arrow.svg" alt=""></a>
+<div class="page">
+
+  <header>
+    <h1>{{TITLE}}</h1>
+    <p>{{DESCRIPTION}}</p>
+  </header>
+
+  <h2>Overview</h2>
+  <p class="intro">Write the introduction here.</p>
+
+  <div class="grid">
+
+    <article class="card">
+      <span class="num">1</span>
+      <h3>Card Title</h3>
+      <p class="class">Short subtitle</p>
+      <div class="stats">
+        <div class="stat"><span class="label">Label</span><span class="value">Value</span></div>
+        <div class="stat"><span class="label">Label</span><span class="value">Value</span></div>
+        <div class="stat"><span class="label">Label</span><span class="value">Value</span></div>
+      </div>
+      <dl>
+        <dt>Details</dt>
+        <dd>Text with <strong>key points in bold</strong>.</dd>
+      </dl>
+    </article>
+
+    <article class="card">
+      <span class="num">2</span>
+      <h3>Card Title</h3>
+      <p class="class">Short subtitle</p>
+      <dl>
+        <dt>Details</dt>
+        <dd>Text.</dd>
+      </dl>
+    </article>
+
+  </div>
+
+  <p class="table-title">Summary</p>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Item</th><th>Column</th><th>Column</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Row</td><td>Value</td><td>Value</td></tr>
+        <tr><td>Row</td><td>Value</td><td>Value</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <footer>
+    Source: {{SOURCE}}. Created {{DATE}}.
+  </footer>
+
+</div>
+</body>
+</html>

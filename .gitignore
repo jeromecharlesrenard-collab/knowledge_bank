@@ -1,0 +1,19 @@
+# Python / tools
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+logs/
+error_log.txt
+.env
+
+# Private source material (not published)
+data/
+
+# Windows shortcut (machine-specific paths)
+*.lnk
+
+# Office lock files and OS clutter
+~$*
+Thumbs.db
+desktop.ini
