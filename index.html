@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tesla Vehicle Lineup</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: #ffffff;
+    color: #000000;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 16px;
+    line-height: 1.5;
+  }
+  .page {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 48px 24px 64px;
+  }
+  header {
+    border-bottom: 3px solid #000000;
+    padding-bottom: 20px;
+    margin-bottom: 32px;
+  }
+  header h1 {
+    margin: 0 0 8px;
+    font-size: 36px;
+    font-weight: bold;
+    letter-spacing: 0.5px;
+  }
+  header p {
+    margin: 0;
+    font-size: 18px;
+  }
+  h2 {
+    font-size: 24px;
+    font-weight: bold;
+    margin: 48px 0 20px;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 24px;
+  }
+  .card {
+    border: 1px solid #cccccc;
+    border-top: 4px solid #000000;
+    border-radius: 6px;
+    padding: 24px;
+    background: #ffffff;
+  }
+  .card .photo {
+    margin: -8px -8px 16px;
+    border-bottom: 1px solid #e0e0e0;
+    text-align: center;
+  }
+  .card .photo img {
+    display: block;
+    width: 100%;
+    max-width: 440px;
+    height: auto;
+    margin: 0 auto;
+  }
+  .card .num {
+    display: inline-block;
+    font-size: 13px;
+    font-weight: bold;
+    border: 1px solid #000000;
+    border-radius: 12px;
+    padding: 2px 10px;
+    margin-bottom: 10px;
+  }
+  .card h3 {
+    margin: 0 0 4px;
+    font-size: 22px;
+    font-weight: bold;
+  }
+  .card .class {
+    margin: 0 0 18px;
+    font-style: italic;
+  }
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 18px;
+  }
+  .stat {
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    padding: 10px 12px;
+  }
+  .stat .label {
+    display: block;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .stat .value {
+    display: block;
+    font-size: 15px;
+    font-weight: bold;
+    margin-top: 2px;
+  }
+  .card dl { margin: 0; }
+  .card dt {
+    font-weight: bold;
+    margin-top: 12px;
+  }
+  .card dd { margin: 4px 0 0; }
+  .table-wrap { overflow-x: auto; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 15px;
+  }
+  th, td {
+    text-align: left;
+    padding: 12px 14px;
+    border-bottom: 1px solid #dddddd;
+    white-space: nowrap;
+  }
+  thead th {
+    border-bottom: 2px solid #000000;
+    font-weight: bold;
+  }
+  tbody td:first-child { font-weight: bold; }
+  tbody tr:nth-child(even) { background: #f7f7f7; }
+  .status {
+    display: inline-block;
+    border: 1px solid #000000;
+    border-radius: 10px;
+    padding: 1px 10px;
+    font-size: 13px;
+    font-weight: bold;
+  }
+  .asof { font-weight: normal; font-size: 16px; }
+  .intro { margin: 0 0 24px; max-width: 820px; }
+  .stats.two { grid-template-columns: repeat(2, 1fr); }
+  .card ul { margin: 6px 0 0; padding-left: 20px; }
+  .card li { margin-bottom: 4px; }
+  .note {
+    margin: 14px 0 0;
+    font-size: 14px;
+    font-style: italic;
+  }
+  .table-title {
+    font-size: 18px;
+    font-weight: bold;
+    margin: 36px 0 12px;
+  }
+  footer {
+    margin-top: 48px;
+    padding-top: 16px;
+    border-top: 1px solid #cccccc;
+    font-size: 13px;
+  }
+  @media (max-width: 760px) {
+    .page { padding: 32px 16px 48px; }
+    header h1 { font-size: 28px; }
+    .grid { grid-template-columns: 1fr; }
+    .stats { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header>
+    <h1>Tesla Vehicle Lineup</h1>
+    <p>An overview of Tesla's core vehicles: the <strong>Model S, Model X, Model 3, and Model Y</strong>.</p>
+  </header>
+
+  <h2>Models</h2>
+  <div class="grid">
+
+    <article class="card">
+      <div class="photo"><img src="Tesla_images/model_s.png" alt="Tesla Model S, front three-quarter view" loading="lazy"></div>
+      <span class="num">1</span>
+      <h3>Tesla Model S</h3>
+      <p class="class">Full-size luxury liftback sedan</p>
+      <div class="stats">
+        <div class="stat"><span class="label">Production</span><span class="value">2012 – Present</span></div>
+        <div class="stat"><span class="label">Starting Price</span><span class="value">~$75K – $90K</span></div>
+        <div class="stat"><span class="label">EPA Range</span><span class="value">~359 – 402 mi</span></div>
+        <div class="stat"><span class="label">0 – 60 mph</span><span class="value">3.1 sec</span></div>
+        <div class="stat"><span class="label">Top Speed</span><span class="value">130 mph</span></div>
+        <div class="stat"><span class="label">Seating</span><span class="value">5</span></div>
+        <div class="stat"><span class="label">Cargo (Seats)</span><span class="value">~28 cu ft</span></div>
+        <div class="stat"><span class="label">Cargo (Max)</span><span class="value">~61 cu ft</span></div>
+        <div class="stat"><span class="label">Drivetrain</span><span class="value">AWD</span></div>
+      </div>
+      <dl>
+        <dt>Key Features</dt>
+        <dd>Tesla's flagship performance sedan, famous for the ultra-fast "Plaid" trim (<strong>0–60 mph in under 2 seconds</strong>) and its distinct liftback design.</dd>
+      </dl>
+    </article>
+
+    <article class="card">
+      <div class="photo"><img src="Tesla_images/model_x.png" alt="Tesla Model X, front three-quarter view" loading="lazy"></div>
+      <span class="num">2</span>
+      <h3>Tesla Model X</h3>
+      <p class="class">Full-size luxury crossover SUV</p>
+      <div class="stats">
+        <div class="stat"><span class="label">Production</span><span class="value">2015 – Present</span></div>
+        <div class="stat"><span class="label">Starting Price</span><span class="value">~$80K – $95K</span></div>
+        <div class="stat"><span class="label">EPA Range</span><span class="value">~326 – 335 mi</span></div>
+        <div class="stat"><span class="label">0 – 60 mph</span><span class="value">3.8 sec</span></div>
+        <div class="stat"><span class="label">Top Speed</span><span class="value">155 mph</span></div>
+        <div class="stat"><span class="label">Seating</span><span class="value">5, 6 or 7</span></div>
+        <div class="stat"><span class="label">Cargo (Seats)</span><span class="value">~37 cu ft</span></div>
+        <div class="stat"><span class="label">Cargo (Max)</span><span class="value">~92 cu ft</span></div>
+        <div class="stat"><span class="label">Drivetrain</span><span class="value">AWD</span></div>
+      </div>
+      <dl>
+        <dt>Key Features</dt>
+        <dd>Built on the Model S platform, noted for its dual-hinged <strong>"Falcon Wing" rear doors</strong>, panoramic windshield, and 5-, 6-, or 7-passenger seating options.</dd>
+      </dl>
+    </article>
+
+    <article class="card">
+      <div class="photo"><img src="Tesla_images/model_3.png" alt="Tesla Model 3, front three-quarter view" loading="lazy"></div>
+      <span class="num">3</span>
+      <h3>Tesla Model 3</h3>
+      <p class="class">Compact luxury sedan</p>
+      <div class="stats">
+        <div class="stat"><span class="label">Production</span><span class="value">2017 – Present</span></div>
+        <div class="stat"><span class="label">Starting Price</span><span class="value">~$39K – $55K</span></div>
+        <div class="stat"><span class="label">EPA Range</span><span class="value">~272 – 363 mi</span></div>
+        <div class="stat"><span class="label">0 – 60 mph</span><span class="value">4.2 – 5.8 sec</span></div>
+        <div class="stat"><span class="label">Top Speed</span><span class="value">125 mph</span></div>
+        <div class="stat"><span class="label">Seating</span><span class="value">5</span></div>
+        <div class="stat"><span class="label">Cargo (Seats)</span><span class="value">~24 cu ft</span></div>
+        <div class="stat"><span class="label">Cargo (Max)</span><span class="value">Not published</span></div>
+        <div class="stat"><span class="label">Drivetrain</span><span class="value">RWD or AWD</span></div>
+      </div>
+      <dl>
+        <dt>Range Detail</dt>
+        <dd>Depends on configuration (RWD vs. Long Range).</dd>
+        <dt>Key Features</dt>
+        <dd>Tesla's mass-market sedan, featuring a minimalist interior dominated by a single central touchscreen. Recently refreshed under the internal codename <strong>"Highland"</strong> for improved interior quietness and ride quality.</dd>
+      </dl>
+    </article>
+
+    <article class="card">
+      <div class="photo"><img src="Tesla_images/model_y.png" alt="Tesla Model Y, front three-quarter view" loading="lazy"></div>
+      <span class="num">4</span>
+      <h3>Tesla Model Y</h3>
+      <p class="class">Compact luxury crossover SUV</p>
+      <div class="stats">
+        <div class="stat"><span class="label">Production</span><span class="value">2020 – Present</span></div>
+        <div class="stat"><span class="label">Starting Price</span><span class="value">~$43K – $56K</span></div>
+        <div class="stat"><span class="label">EPA Range</span><span class="value">~260 – 310+ mi</span></div>
+        <div class="stat"><span class="label">0 – 60 mph</span><span class="value">4.6 – 6.8 sec</span></div>
+        <div class="stat"><span class="label">Top Speed</span><span class="value">125 mph</span></div>
+        <div class="stat"><span class="label">Seating</span><span class="value">5 or 7</span></div>
+        <div class="stat"><span class="label">Cargo (Seats)</span><span class="value">~30 cu ft</span></div>
+        <div class="stat"><span class="label">Cargo (Max)</span><span class="value">~74 – 76 cu ft</span></div>
+        <div class="stat"><span class="label">Drivetrain</span><span class="value">RWD or AWD</span></div>
+      </div>
+      <dl>
+        <dt>Key Features</dt>
+        <dd>Shares roughly <strong>75% of its components</strong> with the Model 3 but provides higher seating, more cargo volume, and an optional 7-seat configuration. It became <strong>one of the best-selling passenger vehicles globally</strong>.</dd>
+      </dl>
+    </article>
+
+  </div>
+
+  <h2>Quick Comparison Summary <span class="asof">(as of 2026-10-15)</span></h2>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Model</th>
+          <th>Body Style</th>
+          <th>Launch Year</th>
+          <th>Current Status</th>
+          <th>Approx. Base Price (USD)</th>
+          <th>Max EPA Range</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>Model S</td><td>Luxury Sedan</td><td>2012</td><td><span class="status">Active</span></td><td>~$75,000</td><td>~402 miles</td></tr>
+        <tr><td>Model X</td><td>Luxury SUV</td><td>2015</td><td><span class="status">Active</span></td><td>~$80,000</td><td>~335 miles</td></tr>
+        <tr><td>Model 3</td><td>Compact Sedan</td><td>2017</td><td><span class="status">Active</span></td><td>~$39,000</td><td>~363 miles</td></tr>
+        <tr><td>Model Y</td><td>Compact SUV</td><td>2020</td><td><span class="status">Active</span></td><td>~$43,000</td><td>~310+ miles</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2>Charging the Model 3 and Model Y: 10% to 80%</h2>
+  <p class="intro">Charging from 10% to 80% adds 70% of the battery's usable capacity. For the Long Range versions, that is about <strong>57 kWh for the Model 3</strong> (~82 kWh pack) and <strong>53 kWh for the Model Y</strong> (~75 kWh pack). Home charging draws roughly 10% more from the grid because of charging losses. Below is the breakdown for each model, at home and at a Tesla Supercharger.</p>
+
+  <div class="grid">
+
+    <article class="card">
+      <span class="num">3</span>
+      <h3>Tesla Model 3</h3>
+      <p class="class">Long Range, ~57 kWh added (~63 kWh from the grid at home)</p>
+      <div class="stats two">
+        <div class="stat"><span class="label">Home Time</span><span class="value">5.5 – 8 hours</span></div>
+        <div class="stat"><span class="label">Home Cost</span><span class="value">$10 – $16</span></div>
+        <div class="stat"><span class="label">Supercharger Time</span><span class="value">25 – 35 minutes</span></div>
+        <div class="stat"><span class="label">Supercharger Cost</span><span class="value">$20 – $29</span></div>
+      </div>
+      <dl>
+        <dt>At Home</dt>
+        <dd>
+          <ul>
+            <li><strong>Tesla Wall Connector</strong> (11.5 kW / 48A): ~5 hours, 30 minutes</li>
+            <li><strong>240V / 32A outlet</strong> (7.7 kW): ~8 hours, 15 minutes</li>
+            <li><strong>Standard 120V outlet:</strong> adds only ~3 – 4 miles of range per hour, so it would take about 45 hours</li>
+            <li><strong>US average rate</strong> (~$0.16 – $0.25/kWh): ~$10.00 – $15.75</li>
+            <li><strong>French EDF home rate</strong> (~€0.16 – €0.20/kWh): ~€10.00 – €12.60</li>
+          </ul>
+        </dd>
+        <dt>At a Supercharger (V3 / V4)</dt>
+        <dd>
+          <ul>
+            <li>Charging peaks at up to <strong>250 kW</strong> near 10%, then slows gradually as the battery fills to 80%.</li>
+            <li><strong>US rate</strong> (~$0.35 – $0.50/kWh): ~$20.00 – $28.50</li>
+            <li><strong>European rate</strong> (~€0.33 – €0.41/kWh): ~€18.80 – €23.40</li>
+          </ul>
+        </dd>
+      </dl>
+    </article>
+
+    <article class="card">
+      <span class="num">4</span>
+      <h3>Tesla Model Y</h3>
+      <p class="class">Long Range, ~53 kWh added (~58 kWh from the grid at home)</p>
+      <div class="stats two">
+        <div class="stat"><span class="label">Home Time</span><span class="value">5 – 7.5 hours</span></div>
+        <div class="stat"><span class="label">Home Cost</span><span class="value">$9 – $15</span></div>
+        <div class="stat"><span class="label">Supercharger Time</span><span class="value">30 – 35 minutes</span></div>
+        <div class="stat"><span class="label">Supercharger Cost</span><span class="value">$19 – $27</span></div>
+      </div>
+      <dl>
+        <dt>At Home</dt>
+        <dd>
+          <ul>
+            <li><strong>Tesla Wall Connector</strong> (11.5 kW / 48A): ~5 hours</li>
+            <li><strong>240V / 32A outlet</strong> (7.7 kW): ~7 hours, 30 minutes</li>
+            <li><strong>Standard 120V outlet:</strong> adds only ~3 miles of range per hour, so it would take about 41 hours</li>
+            <li><strong>US average rate</strong> (~$0.16 – $0.25/kWh): ~$9.30 – $14.50</li>
+            <li><strong>French EDF home rate</strong> (~€0.16 – €0.20/kWh): ~€9.30 – €11.60</li>
+          </ul>
+        </dd>
+        <dt>At a Supercharger (V3 / V4)</dt>
+        <dd>
+          <ul>
+            <li>Charging peaks at up to <strong>250 kW</strong> near 10%. The larger, heavier SUV averages a little slower than the Model 3 over the session.</li>
+            <li><strong>US rate</strong> (~$0.35 – $0.50/kWh): ~$18.50 – $26.50</li>
+            <li><strong>European rate</strong> (~€0.33 – €0.41/kWh): ~€17.50 – €21.70</li>
+          </ul>
+        </dd>
+      </dl>
+    </article>
+
+  </div>
+
+  <p class="note">Off-peak overnight home charging can cut costs by another 20% – 40%. Supercharger prices vary with location, time of day, and peak vs. off-peak hours.</p>
+
+  <p class="table-title">Key Takeaway Summary</p>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Model</th>
+          <th>Location</th>
+          <th>Charge Time (10% → 80%)</th>
+          <th>Estimated Cost (US)</th>
+          <th>Estimated Cost (Europe)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>Model 3</td><td>At Home</td><td>5.5 – 8 hours</td><td>$10 – $16</td><td>€10 – €13</td></tr>
+        <tr><td>Model 3</td><td>Supercharger</td><td>25 – 35 minutes</td><td>$20 – $29</td><td>€19 – €23</td></tr>
+        <tr><td>Model Y</td><td>At Home</td><td>5 – 7.5 hours</td><td>$9 – $15</td><td>€9 – €12</td></tr>
+        <tr><td>Model Y</td><td>Supercharger</td><td>30 – 35 minutes</td><td>$19 – $27</td><td>€17 – €22</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <footer>
+    Source: Tesla.docx. All prices and ranges are approximate estimates. Charging figures are estimates for Long Range versions, based on published charging-curve tests. Vehicle images: J.D. Power / Chrome Data stock photography.
+  </footer>
+
+</div>
+</body>
+</html>
