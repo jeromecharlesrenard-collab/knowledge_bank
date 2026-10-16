@@ -26,7 +26,7 @@ ENTRIES_LIST = re.compile(r'(<ul[^>]*id="entries"[^>]*>)(.*?)(\n\s*</ul>)', re.S
 
 ENTRY_BLOCK = """
       <li class="entry">
-        <a href="{href}">
+        <a href="{href}" title="{desc}">
           <span class="name">{name}</span>
           <span class="desc">{desc}</span>
           <span class="date">Added {added}</span>

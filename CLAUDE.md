@@ -47,6 +47,9 @@ knowledge_bank/
 ## Conventions
 - **Every page uses the Tesla page style**: link `assets/kb_style.css`, `kb_config.js`, `assets/kb_common.js` in `<head>`; return arrow `<a class="return-arrow" href="index.html">` right after `<body>`. Do not put `<style>` blocks in pages; add shared classes to kb_style.css.
 - White background, black Arial text, bold where needed; cards, stat boxes, striped tables (see Tesla.html).
+- **No round numbering badges** on cards or boxes (user rule, 2026-10-16).
+- Long lists of items: full-width row cards (`.rows` / `.row-card`, see Civilizations_Empires.html): one header line, max 2 text lines, extra details in `<div class="more">` behind the expand icon.
+- Home page entries: name on top, description + "Added" date on one single line (CSS cuts long text; full text on hover).
 - Create new pages with `tools/new_page.py` (adds the home page entry automatically).
 - Page images go in `<Page>_images/` next to the page; file and folder names are case-sensitive on GitHub.
 - Run the site check before publishing.

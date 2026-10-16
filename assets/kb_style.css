@@ -95,15 +95,6 @@ h2 {
   height: auto;
   margin: 0 auto;
 }
-.card .num {
-  display: inline-block;
-  font-size: 13px;
-  font-weight: bold;
-  border: 1px solid #000000;
-  border-radius: 12px;
-  padding: 2px 10px;
-  margin-bottom: 10px;
-}
 .card h3 {
   margin: 0 0 4px;
   font-size: 22px;
@@ -322,19 +313,28 @@ footer {
 }
 .entry a:hover,
 .entry a:focus-visible { background: #f7f7f7; }
+/* Entry: name on top; description and "Added" date share one single line below */
+.entry a {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: 20px;
+  align-items: baseline;
+}
 .entry .name {
-  display: block;
+  grid-column: 1 / -1;
   font-size: 19px;
   font-weight: bold;
 }
 .entry .desc {
-  display: block;
   margin-top: 4px;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .entry .date {
-  display: block;
-  margin-top: 6px;
   font-size: 13px;
+  white-space: nowrap;
 }
 
 /* ---------- Phone screens ---------- */
