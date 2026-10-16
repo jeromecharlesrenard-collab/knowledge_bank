@@ -10,6 +10,57 @@
   root.setProperty('--ra-left', (c.returnArrowLeftMargin != null ? c.returnArrowLeftMargin : 18) + 'pt');
 })();
 
+// Row cards: add an expand icon to cards with hidden content (cut-off text or a .more block).
+(function () {
+  var CHEVRON = '<svg viewBox="0 0 12 12" aria-hidden="true"><polyline points="2,4 6,8 10,4" ' +
+    'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
+  function hasHiddenContent(card) {
+    if (card.querySelector('.more')) { return true; }
+    var desc = card.querySelector('.desc');
+    if (desc && desc.scrollHeight > desc.clientHeight + 1) { return true; }
+    var cells = card.querySelectorAll('.row-head h3, .fact');
+    for (var i = 0; i < cells.length; i++) {
+      if (cells[i].scrollWidth > cells[i].clientWidth + 1) { return true; }
+    }
+    return false;
+  }
+
+  function update() {
+    var cards = document.querySelectorAll('.row-card');
+    for (var i = 0; i < cards.length; i++) {
+      var card = cards[i];
+      var btn = card.querySelector('.expand-btn');
+      if (!btn) {
+        btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'expand-btn';
+        btn.innerHTML = CHEVRON;
+        btn.addEventListener('click', function (event) {
+          var c = event.currentTarget.parentNode;
+          var open = c.classList.toggle('expanded');
+          event.currentTarget.setAttribute('aria-expanded', open ? 'true' : 'false');
+          event.currentTarget.title = open ? 'Show less' : 'Show more';
+        });
+        btn.setAttribute('aria-expanded', 'false');
+        btn.title = 'Show more';
+        card.appendChild(btn);
+      }
+      if (!card.classList.contains('expanded')) {
+        btn.hidden = !hasHiddenContent(card);
+      }
+    }
+  }
+
+  var timer = null;
+  document.addEventListener('DOMContentLoaded', update);
+  window.addEventListener('load', update);
+  window.addEventListener('resize', function () {
+    clearTimeout(timer);
+    timer = setTimeout(update, 150);
+  });
+})();
+
 // Home page: sort index entries alphabetically and group them under letter headings.
 document.addEventListener('DOMContentLoaded', function () {
   var source = document.getElementById('entries');
