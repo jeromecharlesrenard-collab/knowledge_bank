@@ -206,6 +206,50 @@ h2 {
 }
 .row-card.expanded .expand-btn svg { transform: rotate(180deg); }
 
+/* ---------- Title boxes: <article class="card row-card title-box"> ----------
+   Thin border, one line (title + origin date), expand icon on the right side.
+   All text goes in <div class="more"> and shows when the box is expanded. */
+.card.row-card.title-box {
+  border: 1px solid #b0b0b0;
+  border-radius: 6px;
+  padding: 10px 54px 10px 20px;
+}
+.title-line {
+  display: grid;
+  grid-template-columns: minmax(0, 400px) minmax(0, 1fr);
+  gap: 4px 24px;
+  align-items: baseline;
+  cursor: pointer;
+}
+.title-line h3 {
+  margin: 0;
+  font-size: 18px;
+  line-height: 1.4;
+}
+.title-line h3,
+.origin {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.origin .label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-right: 6px;
+}
+.origin .value { font-size: 15px; font-weight: bold; }
+.title-box.expanded .title-line h3,
+.title-box.expanded .origin { white-space: normal; }
+.title-box .more p { margin: 0; }
+.title-box.expanded .more {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid #e0e0e0;
+}
+.title-box .expand-btn { top: 10px; }
+
 /* ---------- Section navigation, cross-links ---------- */
 html { scroll-behavior: smooth; }
 h2[id] { scroll-margin-top: 20px; }
@@ -375,20 +419,20 @@ footer {
 }
 .entry a:hover,
 .entry a:focus-visible { background: #f7f7f7; }
-/* Entry: name on top; description and "Added" date share one single line below */
+/* Entry: name, description and "Added" date on one single line */
 .entry a {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   column-gap: 20px;
   align-items: baseline;
+  padding: 12px 22px;
 }
 .entry .name {
-  grid-column: 1 / -1;
   font-size: 19px;
   font-weight: bold;
+  white-space: nowrap;
 }
 .entry .desc {
-  margin-top: 4px;
   min-width: 0;
   white-space: nowrap;
   overflow: hidden;
@@ -407,4 +451,7 @@ footer {
   .stats { grid-template-columns: repeat(2, 1fr); }
   .row-head { grid-template-columns: 1fr 1fr; }
   .row-head h3 { grid-column: 1 / -1; margin-bottom: 4px; }
+  .title-line { grid-template-columns: 1fr; }
+  .entry a { grid-template-columns: minmax(0, 1fr) auto; }
+  .entry .name { grid-column: 1 / -1; }
 }

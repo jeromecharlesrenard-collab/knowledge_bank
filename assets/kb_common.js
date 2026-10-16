@@ -45,6 +45,13 @@
         btn.setAttribute('aria-expanded', 'false');
         btn.title = 'Show more';
         card.appendChild(btn);
+        // Title boxes: clicking the title line also toggles the box.
+        var line = card.querySelector('.title-line');
+        if (line) {
+          line.addEventListener('click', function (event) {
+            event.currentTarget.parentNode.querySelector('.expand-btn').click();
+          });
+        }
       }
       if (!card.classList.contains('expanded')) {
         btn.hidden = !hasHiddenContent(card);
