@@ -59,6 +59,24 @@
     }
   }
 
+  // "Expand all" button: opens every box, or closes them all when all are open.
+  document.addEventListener('DOMContentLoaded', function () {
+    var all = document.querySelector('.expand-all');
+    if (!all) { return; }
+    all.addEventListener('click', function () {
+      var cards = document.querySelectorAll('.row-card');
+      var open = false;
+      for (var i = 0; i < cards.length; i++) {
+        if (!cards[i].classList.contains('expanded')) { open = true; }
+      }
+      for (var j = 0; j < cards.length; j++) {
+        var btn = cards[j].querySelector('.expand-btn');
+        if (btn && !btn.hidden && cards[j].classList.contains('expanded') !== open) { btn.click(); }
+      }
+      all.textContent = open ? 'Collapse all' : 'Expand all';
+    });
+  });
+
   var timer = null;
   document.addEventListener('DOMContentLoaded', update);
   window.addEventListener('load', update);

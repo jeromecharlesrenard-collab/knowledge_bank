@@ -250,6 +250,45 @@ h2 {
 }
 .title-box .expand-btn { top: 10px; }
 
+/* Timeline list inside a box: <dl class="tl-list"><dt>date</dt><dd>event</dd> */
+.card dl.tl-list {
+  display: grid;
+  grid-template-columns: minmax(150px, max-content) minmax(0, 1fr);
+  margin: 0;
+}
+.tl-list dt,
+.tl-list dd {
+  margin: 0;
+  padding: 7px 0;
+  border-top: 1px solid #eeeeee;
+}
+.tl-list dt:first-of-type,
+.tl-list dt:first-of-type + dd { border-top: 0; padding-top: 0; }
+.tl-list dt { font-weight: bold; padding-right: 24px; white-space: nowrap; }
+.tl-link { margin: 10px 0 0; font-size: 14px; }
+
+/* Intro line with an "Expand all" button on the right */
+.intro-bar {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+.intro-bar .intro { margin: 0; }
+.expand-all {
+  flex: none;
+  border: 1px solid #000000;
+  border-radius: 14px;
+  padding: 3px 14px;
+  background: #ffffff;
+  color: #000000;
+  font: bold 14px Arial, Helvetica, sans-serif;
+  cursor: pointer;
+}
+.expand-all:hover,
+.expand-all:focus-visible { background: #f0f0f0; }
+
 /* ---------- Large images: <figure class="figure"> (add "wide" to go past the page width) ---------- */
 .figure { margin: 0; }
 .figure img {
@@ -469,6 +508,10 @@ footer {
   .row-head { grid-template-columns: 1fr 1fr; }
   .row-head h3 { grid-column: 1 / -1; margin-bottom: 4px; }
   .title-line { grid-template-columns: 1fr; }
+  .card dl.tl-list { grid-template-columns: 1fr; }
+  .tl-list dd { border-top: 0; padding-top: 0; }
+  .tl-list dt { white-space: normal; }
+  .intro-bar { flex-direction: column; }
   .entry a { grid-template-columns: minmax(0, 1fr) auto; }
   .entry .name { grid-column: 1 / -1; }
 }
