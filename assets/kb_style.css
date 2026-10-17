@@ -39,6 +39,25 @@ body {
   height: 100%;
 }
 
+/* ---------- Top arrow (added by kb_common.js; size and margins in kb_config.js) ---------- */
+.top-arrow {
+  position: fixed;
+  top: var(--ta-top, 18pt);
+  right: var(--ta-right, 18pt);
+  width: var(--ta-size, 48px);
+  height: var(--ta-size, 48px);
+  z-index: 100;
+  border-radius: 50%;
+  transition: transform 0.15s ease;
+}
+.top-arrow:hover,
+.top-arrow:focus-visible { transform: scale(1.08); }
+.top-arrow img {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
 /* ---------- Page header ---------- */
 header {
   border-bottom: 3px solid #000000;

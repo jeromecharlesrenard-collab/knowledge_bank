@@ -49,6 +49,7 @@ knowledge_bank/
 - White background, black Arial text, bold where needed; cards, stat boxes, striped tables (see Tesla.html).
 - **No round numbering badges** on cards or boxes (user rule, 2026-10-16).
 - Long lists of items: full-width row cards (`.rows` / `.row-card`, see Civilizations_Empires.html): one header line, max 2 text lines, extra details in `<div class="more">` behind the expand icon.
+- **Top arrow**: kb_common.js adds a "back to top" arrow (`assets/top_arrow.svg`) to the top-right corner of every page; size and margins in kb_config.js. Nothing to add per page.
 - **Expand all**: kb_common.js adds an "Expand all / Collapse all" button automatically to any page with 2+ expandable boxes (right end of `.section-nav`, or under the header). Nothing to add per page; a page may place its own `<button class="expand-all">` instead (see Timeline_of_Humanity.html).
 - Home page entries: name on top, description + "Added" date on one single line (CSS cuts long text; full text on hover).
 - Create new pages with `tools/new_page.py` (adds the home page entry automatically).

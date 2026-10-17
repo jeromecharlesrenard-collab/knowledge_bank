@@ -8,7 +8,30 @@
   root.setProperty('--ra-size', ((c.returnArrowSize || 100) / 100 * 48) + 'px');
   root.setProperty('--ra-top', (c.returnArrowTopMargin != null ? c.returnArrowTopMargin : 18) + 'pt');
   root.setProperty('--ra-left', (c.returnArrowLeftMargin != null ? c.returnArrowLeftMargin : 18) + 'pt');
+  root.setProperty('--ta-size', ((c.topArrowSize || 100) / 100 * 48) + 'px');
+  root.setProperty('--ta-top', (c.topArrowTopMargin != null ? c.topArrowTopMargin : 18) + 'pt');
+  root.setProperty('--ta-right', (c.topArrowRightMargin != null ? c.topArrowRightMargin : 18) + 'pt');
 })();
+
+// Top arrow (top-right corner): added to every page; scrolls smoothly back to the top.
+document.addEventListener('DOMContentLoaded', function () {
+  if (document.querySelector('.top-arrow')) { return; }
+  var a = document.createElement('a');
+  a.className = 'top-arrow';
+  a.href = '#';
+  a.title = 'Back to top';
+  a.setAttribute('aria-label', 'Back to top');
+  a.innerHTML = '<img src="assets/top_arrow.svg" alt="">';
+  a.addEventListener('click', function (event) {
+    event.preventDefault();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    // Drop a section link (#other) from the address so a refresh stays at the top.
+    if (window.location.hash && window.history.replaceState) {
+      window.history.replaceState(null, '', window.location.pathname + window.location.search);
+    }
+  });
+  document.body.insertBefore(a, document.body.firstChild);
+});
 
 // Row cards: add an expand icon to cards with hidden content (cut-off text or a .more block).
 (function () {
