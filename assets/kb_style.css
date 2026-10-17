@@ -285,6 +285,17 @@ h2 {
 .tl-list dt:first-of-type + dd { border-top: 0; padding-top: 0; }
 .tl-list dt { font-weight: bold; padding-right: 24px; white-space: nowrap; }
 .tl-link { margin: 10px 0 0; font-size: 14px; }
+.tl-list ul.steps { margin: 0; padding-left: 20px; }
+.tl-list ul.steps li { margin-bottom: 2px; }
+
+/* Small inline table inside a box (e.g. a °C / °F quick reference) */
+table.mini-table { width: auto; font-size: 15px; }
+.mini-table td {
+  padding: 3px 14px;
+  border-bottom: 1px solid #e0e0e0;
+  text-align: center;
+}
+.mini-table td:first-child { text-align: left; padding-left: 0; }
 
 /* Intro line with an "Expand all" button on the right */
 .intro-bar {
