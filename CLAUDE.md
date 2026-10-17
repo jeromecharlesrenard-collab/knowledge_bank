@@ -54,4 +54,4 @@ knowledge_bank/
 - Page images go in `<Page>_images/` next to the page; file and folder names are case-sensitive on GitHub.
 - Run the site check before publishing.
 - American spelling. Python: PEP 8, type hints, docstrings, pathlib, paths resolved from the project folder; tools must work under pythonw.exe (no print dependency in GUI code).
-- Do not run tools, tests, or the preview without the user's authorization. Do not push to GitHub without asking.
+- After every change, run the site check and tests, then commit and push to `origin main` without asking (user rule, 2026-10-17). Ask only when there is an open question or a check/test fails. Do not start the preview window without the user's authorization.
