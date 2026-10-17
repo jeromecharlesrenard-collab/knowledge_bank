@@ -43,7 +43,7 @@ def test_page_without_arrow_title_or_style(mini_site: Path) -> None:
 def test_external_links_are_ignored() -> None:
     assert not is_local("https://example.com/x.png")
     assert not is_local("#section")
-    assert is_local("Tesla_images/model_s.png")
+    assert is_local("kb_images/tesla_model_s.png")
 
 
 def test_resolve_exact(mini_site: Path) -> None:

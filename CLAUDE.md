@@ -12,7 +12,7 @@ Static website of knowledge pages, published with GitHub Pages:
 knowledge_bank/
 ├── index.html               home page (alphabetical list; sorted/grouped by assets/kb_common.js)
 ├── Tesla.html               knowledge page
-├── Tesla_images/            images for Tesla.html (one <Page>_images/ folder per page)
+├── kb_images/               ALL page images (kb = knowledge_bank), named <page>_<item>.png
 ├── kb_config.js             page settings: return arrow size (%), top/left margins (pt)
 ├── assets/
 │   ├── kb_style.css         shared stylesheet - ALL page styling lives here
@@ -51,7 +51,7 @@ knowledge_bank/
 - Long lists of items: full-width row cards (`.rows` / `.row-card`, see Civilizations_Empires.html): one header line, max 2 text lines, extra details in `<div class="more">` behind the expand icon.
 - Home page entries: name on top, description + "Added" date on one single line (CSS cuts long text; full text on hover).
 - Create new pages with `tools/new_page.py` (adds the home page entry automatically).
-- Page images go in `<Page>_images/` next to the page; file and folder names are case-sensitive on GitHub.
+- "kb" means knowledge_bank. **All page images go in `kb_images/`** (one shared folder, published), named with a lowercase page prefix, e.g. `tesla_model_s.png`, `periodic_table.png`. No per-page image folders. Originals may stay in `data/`, but `data/` is never published, so pages must not link to it. File and folder names are case-sensitive on GitHub.
 - Run the site check before publishing.
 - American spelling. Python: PEP 8, type hints, docstrings, pathlib, paths resolved from the project folder; tools must work under pythonw.exe (no print dependency in GUI code).
 - After every change, run the site check and tests, then commit and push to `origin main` without asking (user rule, 2026-10-17). Ask only when there is an open question or a check/test fails. Do not start the preview window without the user's authorization.
