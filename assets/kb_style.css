@@ -250,6 +250,23 @@ h2 {
 }
 .title-box .expand-btn { top: 10px; }
 
+/* ---------- Large images: <figure class="figure"> (add "wide" to go past the page width) ---------- */
+.figure { margin: 0; }
+.figure img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid #cccccc;
+  border-radius: 6px;
+}
+.figure a { display: block; cursor: zoom-in; }
+.figure.wide {
+  position: relative;
+  left: 50%;
+  width: calc(min(100vw, 1800px) - 48px);
+  transform: translateX(-50%);
+}
+
 /* ---------- Section navigation, cross-links ---------- */
 html { scroll-behavior: smooth; }
 h2[id] { scroll-margin-top: 20px; }
