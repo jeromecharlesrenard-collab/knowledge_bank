@@ -288,6 +288,14 @@ h2 {
 }
 .expand-all:hover,
 .expand-all:focus-visible { background: #f0f0f0; }
+.expand-all[hidden] { display: none; }
+/* Added by kb_common.js: right end of the section links, or its own bar under the header */
+.section-nav .expand-all { margin-left: auto; }
+.expand-all-bar {
+  display: flex;
+  justify-content: flex-end;
+  margin: -12px 0 12px;
+}
 
 /* ---------- Large images: <figure class="figure"> (add "wide" to go past the page width) ---------- */
 .figure { margin: 0; }

@@ -49,6 +49,7 @@ knowledge_bank/
 - White background, black Arial text, bold where needed; cards, stat boxes, striped tables (see Tesla.html).
 - **No round numbering badges** on cards or boxes (user rule, 2026-10-16).
 - Long lists of items: full-width row cards (`.rows` / `.row-card`, see Civilizations_Empires.html): one header line, max 2 text lines, extra details in `<div class="more">` behind the expand icon.
+- **Expand all**: kb_common.js adds an "Expand all / Collapse all" button automatically to any page with 2+ expandable boxes (right end of `.section-nav`, or under the header). Nothing to add per page; a page may place its own `<button class="expand-all">` instead (see Timeline_of_Humanity.html).
 - Home page entries: name on top, description + "Added" date on one single line (CSS cuts long text; full text on hover).
 - Create new pages with `tools/new_page.py` (adds the home page entry automatically).
 - "kb" means knowledge_bank. **All page images go in `kb_images/`** (one shared folder, published), named with a lowercase page prefix, e.g. `tesla_model_s.png`, `periodic_table.png`. No per-page image folders. Originals may stay in `data/`, but `data/` is never published, so pages must not link to it. File and folder names are case-sensitive on GitHub.

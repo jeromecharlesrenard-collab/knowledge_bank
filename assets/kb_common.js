@@ -41,6 +41,7 @@
           var open = c.classList.toggle('expanded');
           event.currentTarget.setAttribute('aria-expanded', open ? 'true' : 'false');
           event.currentTarget.title = open ? 'Show less' : 'Show more';
+          syncExpandAll();
         });
         btn.setAttribute('aria-expanded', 'false');
         btn.title = 'Show more';
@@ -57,25 +58,71 @@
         btn.hidden = !hasHiddenContent(card);
       }
     }
+    syncExpandAll();
   }
 
-  // "Expand all" button: opens every box, or closes them all when all are open.
-  document.addEventListener('DOMContentLoaded', function () {
+  // "Expand all" button: added automatically to every page with expandable boxes.
+  // Placed at the right end of the section links (.section-nav), or under the header.
+  // A page can place its own <button class="expand-all"> instead.
+  function expandableCards() {
+    var result = [];
+    var cards = document.querySelectorAll('.row-card');
+    for (var i = 0; i < cards.length; i++) {
+      var btn = cards[i].querySelector('.expand-btn');
+      if (btn && (!btn.hidden || cards[i].classList.contains('expanded'))) { result.push(cards[i]); }
+    }
+    return result;
+  }
+
+  function anyClosed(cards) {
+    for (var i = 0; i < cards.length; i++) {
+      if (!cards[i].classList.contains('expanded')) { return true; }
+    }
+    return false;
+  }
+
+  function syncExpandAll() {
     var all = document.querySelector('.expand-all');
     if (!all) { return; }
+    var cards = expandableCards();
+    all.hidden = cards.length < 2;
+    all.textContent = anyClosed(cards) ? 'Expand all' : 'Collapse all';
+  }
+
+  function addExpandAll() {
+    if (!document.querySelector('.row-card')) { return; }
+    var all = document.querySelector('.expand-all');
+    if (!all) {
+      all = document.createElement('button');
+      all.type = 'button';
+      all.className = 'expand-all';
+      all.textContent = 'Expand all';
+      var nav = document.querySelector('.section-nav');
+      var header = document.querySelector('.page > header');
+      if (nav) {
+        nav.appendChild(all);
+      } else if (header) {
+        var bar = document.createElement('div');
+        bar.className = 'expand-all-bar';
+        bar.appendChild(all);
+        header.parentNode.insertBefore(bar, header.nextSibling);
+      } else {
+        return;
+      }
+    }
     all.addEventListener('click', function () {
-      var cards = document.querySelectorAll('.row-card');
-      var open = false;
+      var cards = expandableCards();
+      var open = anyClosed(cards);
       for (var i = 0; i < cards.length; i++) {
-        if (!cards[i].classList.contains('expanded')) { open = true; }
+        if (cards[i].classList.contains('expanded') !== open) {
+          cards[i].querySelector('.expand-btn').click();
+        }
       }
-      for (var j = 0; j < cards.length; j++) {
-        var btn = cards[j].querySelector('.expand-btn');
-        if (btn && !btn.hidden && cards[j].classList.contains('expanded') !== open) { btn.click(); }
-      }
-      all.textContent = open ? 'Collapse all' : 'Expand all';
+      syncExpandAll();
     });
-  });
+  }
+
+  document.addEventListener('DOMContentLoaded', addExpandAll);
 
   var timer = null;
   document.addEventListener('DOMContentLoaded', update);
