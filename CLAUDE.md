@@ -18,7 +18,7 @@ knowledge_bank/
 │   ├── kb_style.css         shared stylesheet - ALL page styling lives here
 │   ├── kb_common.js         applies kb_config.js, sorts the home page list
 │   ├── return_arrow.svg     top-left return icon
-│   └── knowledge_bank.ico   icon for the shortcut / preview window
+│   └── knowledge_bank.ico   "KB" icon (shortcuts, preview window)
 ├── templates/page_template.html   starting point for new pages
 ├── main.py                  entry point: logging + config + local preview window
 ├── tools/                   kb_core.py (paths, config, logging), new_page.py, site_check.py, preview.py
@@ -26,7 +26,7 @@ knowledge_bank/
 ├── docs/knowledge_bank NOTES.md
 ├── data/                    private source documents (git-ignored, never published)
 ├── logs/app.log             rotating log (git-ignored)
-├── config.json              tool settings: log_level, preview_port, site_url, repo_url, default_source
+├── config.json              tool settings: log_level, preview_port, preview_idle_minutes, site_url, repo_url, default_source
 ├── requirements.txt         pinned dev dependencies
 ├── pytest.ini, .editorconfig, .gitignore, .gitattributes, .nojekyll
 └── .vscode/                 settings, recommended extensions, tasks
@@ -37,11 +37,14 @@ knowledge_bank/
 - Dependencies (requirements.txt, pinned): pytest, pillow (icon generation). The website itself needs no Python.
 
 ## Commands (run from the project folder)
-- Preview site (GitHub-like local server + control window): `.venv\Scripts\pythonw.exe main.py` or the `knowledge_bank.lnk` shortcut
+- Shortcuts (in the project folder and in `PYTHON_PROJECTS\1 PYTHON APPS SHORTCUP`; git-ignored, *.lnk):
+  - `KNOWLEDGE BANK L.lnk`: open the site locally, no window (GitHub-like server; it stops by itself after `preview_idle_minutes` in config.json, default 60, without page requests; launching again while it runs just reopens the browser). Same as `.venv\Scripts\pythonw.exe main.py`.
+  - `KNOWLEDGE BANK W.lnk`: open the live website.
+  - `KNOWLEDGE BANK PREVIEW.lnk`: control window (OPEN SITE / CHECK SITE / EXIT), same as `main.py --window` or VS Code task "KB: Preview window".
 - New page: `.venv\Scripts\python.exe -m tools.new_page --title "Name" --description "One line"`
 - Check site (links, images, upper/lowercase, arrow, listing): `.venv\Scripts\python.exe -m tools.site_check`
 - Tests: `.venv\Scripts\python.exe -m pytest`
-- VS Code: Terminal > Run Task > "KB: Preview site" / "KB: New page" / "KB: Check site" / "KB: Run tests"
+- VS Code: Terminal > Run Task > "KB: Preview site" / "KB: Preview window" / "KB: New page" / "KB: Check site" / "KB: Run tests"
 - Publish: commit and push to `origin main` (VS Code Source Control); GitHub Pages updates in 1-2 minutes
 
 ## Conventions
