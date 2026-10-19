@@ -460,6 +460,13 @@ tbody td:first-child { font-weight: bold; }
 .wrap td:first-child { min-width: 170px; }
 .wrap td:last-child { min-width: 320px; }
 .wrap td.nowrap { white-space: nowrap; }
+/* Compact tables (fit a tablet screen): <div class="table-wrap wrap compact"> */
+.compact table { font-size: 14px; line-height: 1.25; }
+.compact th, .compact td { padding: 5px 10px; }
+.compact td:first-child { min-width: 110px; }
+.compact td:last-child { min-width: 220px; }
+.table-title.compact-title { margin: 4px 0 6px; }
+.compact + .note { margin-top: 8px; }
 tbody tr:nth-child(even) { background: #f7f7f7; }
 .status {
   display: inline-block;
