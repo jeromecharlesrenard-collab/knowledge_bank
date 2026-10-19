@@ -11,6 +11,15 @@
       "problemMatcher": []
     },
     {
+      "label": "KB: Preview window",
+      "type": "process",
+      "command": "${workspaceFolder}\\.venv\\Scripts\\pythonw.exe",
+      "args": ["${workspaceFolder}\\main.py", "--window"],
+      "options": { "cwd": "${workspaceFolder}" },
+      "presentation": { "reveal": "never" },
+      "problemMatcher": []
+    },
+    {
       "label": "KB: Check site",
       "type": "process",
       "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe",

@@ -5,17 +5,25 @@ home page in the default browser. Unlike a plain Windows file server, it rejects
 links whose upper/lowercase does not match the actual file, exactly like GitHub.
 Pages are never cached, so a normal refresh shows your latest edits.
 
-A small control window shows the address and offers OPEN SITE / CHECK SITE / EXIT.
-Closing the window (or Esc) stops the server.
+Default (the KNOWLEDGE BANK L shortcut): no window. The server runs hidden and stops by
+itself after preview_idle_minutes (config.json) without any page request. If the
+preview is already running, the browser is simply opened on it again.
 
-Usage:  .venv\\Scripts\\pythonw.exe main.py   (or the knowledge_bank shortcut)
+With --window: a small control window shows the address and offers
+OPEN SITE / CHECK SITE / EXIT. Closing the window (or Esc) stops the server.
+
+Usage:  .venv\\Scripts\\pythonw.exe main.py            (or the KNOWLEDGE BANK L shortcut)
+        .venv\\Scripts\\pythonw.exe main.py --window   (control window)
 """
 
 from __future__ import annotations
 
 import os
+import sys
 import threading
+import time
 import tkinter as tk
+import urllib.request
 import webbrowser
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
@@ -29,12 +37,14 @@ from tools.site_check import check_site, resolve_exact
 FONT = "Arial"
 GREEN = "#1a7f37"
 BLUE = "#0b57d0"
+SITE_ID = PROJECT_DIR.name  # sent in the X-Preview-Site header, to recognize our own server
 
 
 class GitHubLikeHandler(SimpleHTTPRequestHandler):
     """Static file handler with case-sensitive paths and no caching."""
 
     def send_head(self):  # type: ignore[override]
+        self.server.last_request = time.monotonic()  # type: ignore[attr-defined]
         path = Path(self.translate_path(self.path))
         if path.exists() and resolve_exact(Path(self.directory), path) == "case":
             self.send_error(404, "File not found (upper/lowercase differs, as GitHub Pages would report)")
@@ -43,6 +53,7 @@ class GitHubLikeHandler(SimpleHTTPRequestHandler):
 
     def end_headers(self) -> None:
         self.send_header("Cache-Control", "no-store")
+        self.send_header("X-Preview-Site", SITE_ID)
         super().end_headers()
 
     def log_message(self, format: str, *args: Any) -> None:  # noqa: A002 - base class signature
@@ -58,10 +69,51 @@ def start_server(root: Path, port: int, attempts: int = 10) -> ThreadingHTTPServ
         except OSError:
             log.info("Port %d busy, trying the next one", candidate)
             continue
+        server.last_request = time.monotonic()  # type: ignore[attr-defined]
         threading.Thread(target=server.serve_forever, daemon=True, name="preview-server").start()
         log.info("Preview server started on http://localhost:%d/", candidate)
         return server
     raise OSError(f"No free port between {port} and {port + attempts - 1}")
+
+
+def find_running(port: int, attempts: int = 10) -> str | None:
+    """Return the address of this site's preview if it is already running, else None."""
+    for candidate in range(port, port + attempts):
+        try:
+            request = urllib.request.Request(f"http://127.0.0.1:{candidate}/", method="HEAD")
+            with urllib.request.urlopen(request, timeout=0.5) as resp:
+                if resp.headers.get("X-Preview-Site") == SITE_ID:
+                    return f"http://localhost:{candidate}/"
+        except OSError:
+            continue
+    return None
+
+
+def serve_until_idle(server: ThreadingHTTPServer, idle_seconds: float, poll: float = 30.0) -> None:
+    """Block until no page was requested for idle_seconds, then stop the server."""
+    while time.monotonic() - server.last_request < idle_seconds:  # type: ignore[attr-defined]
+        time.sleep(poll)
+    log.info("No page request for %.0f minute(s), stopping preview server", idle_seconds / 60)
+    server.shutdown()
+    server.server_close()
+
+
+def run_hidden(config: dict[str, Any]) -> None:
+    """Open the site in the browser with no window; the server stops itself when idle."""
+    port = int(config.get("preview_port", 8000))
+    url = find_running(port)
+    if url:
+        log.info("Preview already running at %s, opening the browser", url)
+        webbrowser.open(url)
+        return
+    try:
+        server = start_server(PROJECT_DIR, port)
+    except OSError as exc:
+        log.error("Preview server could not start: %s", exc)
+        messagebox.showerror("Preview", f"The preview server could not start:\n{exc}")
+        return
+    webbrowser.open(f"http://localhost:{server.server_address[1]}/")
+    serve_until_idle(server, float(config.get("preview_idle_minutes", 60)) * 60)
 
 
 class PreviewWindow:
@@ -158,8 +210,11 @@ class PreviewWindow:
         self.root.destroy()
 
 
-def run(config: dict[str, Any]) -> None:
-    """Start the server, open the browser, and show the control window."""
+def run(config: dict[str, Any], window: bool = False) -> None:
+    """Start the preview: hidden by default, or with the control window."""
+    if not window:
+        run_hidden(config)
+        return
     root = tk.Tk()
     root.withdraw()
     try:
@@ -181,4 +236,4 @@ if __name__ == "__main__":
     from tools.kb_core import start
 
     os.chdir(PROJECT_DIR)
-    run(start(show_dialog=True))
+    run(start(show_dialog=True), window="--window" in sys.argv[1:])
