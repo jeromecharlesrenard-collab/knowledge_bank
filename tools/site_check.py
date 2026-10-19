@@ -3,7 +3,8 @@
 Checks:
 - every local link and image exists, with the exact upper/lowercase spelling
   (Windows ignores case, GitHub Pages does not)
-- every knowledge page has a <title>, the shared stylesheet, and the return arrow
+- every page (except index.html) sits in html_pages/
+- every page has a <title>, the shared stylesheet, and the return arrow
 - every knowledge page is listed on the home page (index.html), with no duplicates
 
 Usage:  .venv\\Scripts\\python.exe -m tools.site_check
@@ -26,6 +27,7 @@ SKIP_DIRS = {
 }
 EXTERNAL_PREFIXES = ("http:", "https:", "mailto:", "tel:", "data:", "javascript:", "#", "//")
 STYLESHEET = "assets/kb_style.css"
+PAGES_DIR = "html_pages"  # every page except index.html lives here
 
 
 @dataclass(frozen=True)
@@ -46,8 +48,8 @@ class PageInfo:
 
     refs: list[str] = field(default_factory=list)
     title: str = ""
-    has_return_arrow: bool = False
-    has_stylesheet: bool = False
+    return_arrows: list[str] = field(default_factory=list)  # hrefs, relative to the page
+    stylesheets: list[str] = field(default_factory=list)  # hrefs, relative to the page
     entries: list[tuple[str, str]] = field(default_factory=list)  # (name, href) on the home page
 
 
@@ -71,10 +73,10 @@ class _PageParser(HTMLParser):
         classes = a.get("class", "").split()
         if tag == "title":
             self._in_title = True
-        elif tag == "a" and "return-arrow" in classes and a.get("href") == "index.html":
-            self.info.has_return_arrow = True
-        elif tag == "link" and a.get("rel") == "stylesheet" and a.get("href") == STYLESHEET:
-            self.info.has_stylesheet = True
+        elif tag == "a" and "return-arrow" in classes:
+            self.info.return_arrows.append(a.get("href", ""))
+        elif tag == "link" and a.get("rel") == "stylesheet":
+            self.info.stylesheets.append(a.get("href", ""))
         elif tag == "li" and "entry" in classes:
             self._in_entry, self._entry_href, self._name = True, "", ""
         elif tag == "a" and self._in_entry:
@@ -142,6 +144,15 @@ def resolve_exact(root: Path, target: Path) -> str:
     return "ok"
 
 
+def points_to(page: Path, hrefs: list[str], target: Path) -> bool:
+    """True if one of the hrefs (relative to the page) leads to the target file."""
+    wanted = os.path.normcase(os.path.abspath(target))
+    return any(
+        os.path.normcase(os.path.abspath(page.parent / unquote(urlsplit(h).path))) == wanted
+        for h in hrefs if is_local(h)
+    )
+
+
 def check_site(root: Path = PROJECT_DIR) -> list[Issue]:
     """Run every check and return the list of problems (empty = all good)."""
     issues: list[Issue] = []
@@ -167,10 +178,13 @@ def check_site(root: Path = PROJECT_DIR) -> list[Issue]:
                 issues.append(Issue(name, "case", f"'{ref}' differs in upper/lowercase from the actual file"))
         if not info.title.strip():
             issues.append(Issue(name, "title", "page has no <title>"))
-        if not info.has_stylesheet:
+        if not points_to(page, info.stylesheets, root / STYLESHEET):
             issues.append(Issue(name, "style", f"page does not link {STYLESHEET}"))
-        if page != index_path and not info.has_return_arrow:
-            issues.append(Issue(name, "arrow", "page has no return arrow to index.html"))
+        if page != index_path:
+            if not points_to(page, info.return_arrows, index_path):
+                issues.append(Issue(name, "arrow", "page has no return arrow to index.html"))
+            if page.parent != root / PAGES_DIR:
+                issues.append(Issue(name, "location", f"page belongs in the {PAGES_DIR}/ folder"))
 
     if index_path not in parsed:
         issues.append(Issue("index.html", "missing", "home page index.html not found"))

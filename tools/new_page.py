@@ -19,6 +19,7 @@ from datetime import date
 from pathlib import Path
 
 from tools.kb_core import PROJECT_DIR, log, start
+from tools.site_check import PAGES_DIR
 
 TEMPLATE = Path("templates") / "page_template.html"
 INVALID_CHARS = set('\\/:*?"<>|')
@@ -85,8 +86,10 @@ def create_page(
     if not title:
         raise ValueError("A title is required")
     filename = validate_filename(filename or default_filename(title))
-    target = root / filename
-    existing = {p.name.lower() for p in root.glob("*.html")}
+    pages_dir = root / PAGES_DIR
+    pages_dir.mkdir(exist_ok=True)
+    target = pages_dir / filename
+    existing = {p.name.lower() for p in pages_dir.glob("*.html")}
     if filename.lower() in existing:
         raise FileExistsError(f"{filename} already exists")
 
@@ -99,7 +102,7 @@ def create_page(
     target.write_text(page, encoding="utf-8", newline="\n")
     log.info("Created %s", target)
 
-    add_index_entry(root, title, description, filename, added)
+    add_index_entry(root, title, description, f"{PAGES_DIR}/{filename}", added)
     return target
 
 
@@ -121,7 +124,7 @@ def main(argv: list[str] | None = None) -> int:
         log.error("New page not created: %s", exc)
         print(f"Not created: {exc}")
         return 1
-    print(f"Created {path.name} and added it to the home page (index.html).")
+    print(f"Created {PAGES_DIR}/{path.name} and added it to the home page (index.html).")
     print("Next: edit the page content, then run the site check and preview.")
     return 0
 

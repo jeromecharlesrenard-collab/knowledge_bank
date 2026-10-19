@@ -5,13 +5,13 @@ Static website of knowledge pages, published with GitHub Pages:
 - Live site: https://jeromecharlesrenard-collab.github.io/knowledge_bank/
 - Repo: https://github.com/jeromecharlesrenard-collab/knowledge_bank (branch `main`, remote `origin`)
 
-`index.html` is the home page ("JCR KNOWLEDGE BANK") with an alphabetical list of pages. Each knowledge page (e.g. `Tesla.html`) sits in the project root.
+`index.html` is the home page ("JCR KNOWLEDGE BANK") with an alphabetical list of pages. Every other page sits in `html_pages/` (e.g. `html_pages/Tesla.html`) and reaches shared files with `../` (see Conventions).
 
 ## Folder Structure
 ```
 knowledge_bank/
 ├── index.html               home page (alphabetical list; sorted/grouped by assets/kb_common.js)
-├── Tesla.html               knowledge page
+├── html_pages/              ALL pages except index.html (e.g. Tesla.html); links use ../
 ├── kb_images/               ALL page images (kb = knowledge_bank), named <page>_<item>.png
 ├── kb_config.js             page settings: return arrow size (%), top/left margins (pt)
 ├── assets/
@@ -45,14 +45,14 @@ knowledge_bank/
 - Publish: commit and push to `origin main` (VS Code Source Control); GitHub Pages updates in 1-2 minutes
 
 ## Conventions
-- **Every page uses the Tesla page style**: link `assets/kb_style.css`, `kb_config.js`, `assets/kb_common.js` in `<head>`; return arrow `<a class="return-arrow" href="index.html">` right after `<body>`. Do not put `<style>` blocks in pages; add shared classes to kb_style.css.
+- **Every page uses the Tesla page style**: pages live in `html_pages/` and link `../assets/kb_style.css`, `../kb_config.js`, `../assets/kb_common.js` in `<head>`; return arrow `<a class="return-arrow" href="../index.html">` right after `<body>`; images `../kb_images/...`; home page entries link `html_pages/<Page>.html`. Only index.html stays in the root (GitHub Pages home page). The site check reports any page outside `html_pages/`. Do not put `<style>` blocks in pages; add shared classes to kb_style.css.
 - White background, black Arial text, bold where needed; cards, stat boxes, striped tables (see Tesla.html).
 - **No round numbering badges** on cards or boxes (user rule, 2026-10-16).
 - Long lists of items: full-width row cards (`.rows` / `.row-card`, see Civilizations_Empires.html): one header line, max 2 text lines, extra details in `<div class="more">` behind the expand icon.
 - **Top arrow**: kb_common.js adds a "back to top" arrow (`assets/top_arrow.svg`) to the top-right corner of every page; size and margins in kb_config.js. Nothing to add per page.
 - **Expand all**: kb_common.js adds an "Expand all / Collapse all" button automatically to any page with 2+ expandable boxes (right end of `.section-nav`, or under the header). Nothing to add per page; a page may place its own `<button class="expand-all">` instead (see Timeline_of_Humanity.html).
 - Home page entries: name on top, description + "Added" date on one single line (CSS cuts long text; full text on hover).
-- Create new pages with `tools/new_page.py` (adds the home page entry automatically).
+- Create new pages with `tools/new_page.py` (creates them in `html_pages/` and adds the home page entry automatically).
 - "kb" means knowledge_bank. **All page images go in `kb_images/`** (one shared folder, published), named with a lowercase page prefix, e.g. `tesla_model_s.png`, `periodic_table.png`. No per-page image folders. Originals may stay in `data/`, but `data/` is never published, so pages must not link to it. File and folder names are case-sensitive on GitHub.
 - Run the site check before publishing.
 - American spelling. Python: PEP 8, type hints, docstrings, pathlib, paths resolved from the project folder; tools must work under pythonw.exe (no print dependency in GUI code).

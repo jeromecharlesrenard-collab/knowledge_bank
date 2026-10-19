@@ -27,10 +27,10 @@ def test_validate_adds_extension() -> None:
 
 def test_create_page_and_index_entry(mini_site: Path) -> None:
     path = create_page("Bitcoin", "What Bitcoin is", root=mini_site, today=date(2026, 10, 16))
-    assert path.name == "Bitcoin.html"
+    assert path == mini_site / "html_pages" / "Bitcoin.html"
     text = path.read_text(encoding="utf-8")
     assert "<title>Bitcoin</title>" in text and "{{" not in text
-    assert ("Bitcoin", "Bitcoin.html") in parse_page(mini_site / "index.html").entries
+    assert ("Bitcoin", "html_pages/Bitcoin.html") in parse_page(mini_site / "index.html").entries
     assert check_site(mini_site) == []
 
 

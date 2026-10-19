@@ -1,6 +1,12 @@
 // JCR Knowledge Bank - shared page script.
 // Load in <head> right after kb_config.js.
 
+// Site root folder, from this script's own address (pages sit in html_pages/, the home page at the root).
+var KB_ROOT = (function () {
+  var s = document.currentScript;
+  return s ? s.src.replace(/assets\/kb_common\.js(\?.*)?$/, '') : '';
+})();
+
 // Apply return arrow settings from kb_config.js (defaults used if the file is missing).
 (function () {
   var c = window.KB_CONFIG || {};
@@ -21,7 +27,7 @@ document.addEventListener('DOMContentLoaded', function () {
   a.href = '#';
   a.title = 'Back to top';
   a.setAttribute('aria-label', 'Back to top');
-  a.innerHTML = '<img src="assets/top_arrow.svg" alt="">';
+  a.innerHTML = '<img src="' + KB_ROOT + 'assets/top_arrow.svg" alt="">';
   a.addEventListener('click', function (event) {
     event.preventDefault();
     window.scrollTo({ top: 0, behavior: 'smooth' });
