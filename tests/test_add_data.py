@@ -9,8 +9,10 @@ from pathlib import Path
 import pytest
 
 from tools.add_data import (
+    NEW_PAGE_TOOLS,
     PUBLISH_TOOLS,
     Page,
+    new_page,
     build_prompt,
     changed_files,
     claude_args,
@@ -133,7 +135,7 @@ def test_page_content_is_sent_and_tests_only_for_code_changes(mini_site: Path) -
     page_text = (mini_site / ALPHA.path).read_text(encoding="utf-8")
     prompt = build_prompt(ALPHA, material, page_text=page_text)
     assert "CURRENT PAGE (html_pages/Alpha.html)" in prompt and page_text in prompt
-    assert "do\n  not need to read it again" in prompt
+    assert "not need to read it again" in prompt
     assert "Run the tests" in prompt and "ONLY if you changed a file outside html_pages/" in prompt
     assert "CURRENT PAGE" not in build_prompt(ALPHA, material)  # without page_text, Claude reads the page
 
@@ -168,6 +170,37 @@ def test_instructions_alone_are_a_job(mini_site: Path) -> None:
     assert "apply the USER INSTRUCTIONS below" in prompt
     assert "Carry out every one of them" in prompt
     assert "Move Weather above Energy" in prompt
+
+
+def test_new_page_with_title(mini_site: Path, tmp_path: Path) -> None:
+    page = new_page(" Solar System ")
+    assert (page.name, page.path, page.new) == ("Solar System", "html_pages/Solar_System.html", True)
+    image = tmp_path / "Sun.png"
+    image.write_bytes(b"png")
+    material = prepare_material(page, image, "", root=mini_site)
+    assert material.images[0].name == "solar_system_sun.png"
+    prompt = build_prompt(page, material, today=date(2026, 10, 24))
+    assert "create a NEW knowledge page" in prompt
+    assert 'Page title: "Solar System" (use it exactly' in prompt
+    assert "tools.new_page --title" in prompt and "title-box" in prompt
+    assert "Created 2026-10-24" in prompt and "CURRENT PAGE" not in prompt
+
+
+def test_new_page_without_title_lets_claude_propose_one(mini_site: Path, tmp_path: Path) -> None:
+    page = new_page("")
+    assert (page.name, page.path, page.new) == ("", "", True)
+    image = tmp_path / "Sun.png"
+    image.write_bytes(b"png")
+    material = prepare_material(page, image, "", root=mini_site)
+    assert material.images[0].name == "new_page_sun.png"  # renamed by Claude once the title is chosen
+    prompt = build_prompt(page, material)
+    assert "propose the best short title" in prompt
+    assert "mv kb_images/new_page_<name> kb_images/<prefix>_<name>" in prompt
+
+
+def test_new_page_tools_only_for_new_pages() -> None:
+    assert all(t in claude_args("claude", new=True) for t in NEW_PAGE_TOOLS)
+    assert not any(t in claude_args("claude") for t in NEW_PAGE_TOOLS)
 
 
 def test_claude_tools_depend_on_update_github() -> None:

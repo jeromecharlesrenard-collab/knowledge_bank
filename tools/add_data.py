@@ -94,14 +94,40 @@ BASE_TOOLS = [
 ]
 # ... and, only when "Update GitHub" is checked, use git to publish.
 PUBLISH_TOOLS = ["Bash(git add:*)", "Bash(git commit:*)", "Bash(git push:*)"]
+# ... and, for a new page, create it with the new-page tool and rename its images.
+NEW_PAGE_TOOLS = [
+    "Bash(.venv/Scripts/python.exe -m tools.new_page:*)",
+    "Bash(.venv\\Scripts\\python.exe -m tools.new_page:*)",
+    "Bash(mv kb_images/:*)",
+]
+
+NEW_PAGE = "New Page"  # first entry of the target page list
+NEW_IMAGE_PREFIX = "new_page"  # image prefix until Claude has chosen the page title
 
 
 @dataclass
 class Page:
-    """A knowledge page listed on the home page."""
+    """A knowledge page listed on the home page, or a page still to be created (new=True)."""
 
     name: str
-    path: str  # relative to the project folder, e.g. "html_pages/Tesla.html"
+    path: str  # relative to the project folder, e.g. "html_pages/Tesla.html" ("" for a new page)
+    new: bool = False
+
+
+def new_page(title: str = "") -> Page:
+    """A page to create: the title the user typed, or '' to let Claude propose one."""
+    title = title.strip()
+    path = ""
+    if title:
+        from tools.new_page import default_filename
+
+        path = f"html_pages/{default_filename(title)}"
+    return Page(title, path, new=True)
+
+
+def image_prefix(page: Page) -> str:
+    """Lowercase page file stem used to name its images (e.g. 'tesla')."""
+    return safe_name(Path(page.path).stem) if page.path else NEW_IMAGE_PREFIX
 
 
 @dataclass
@@ -140,7 +166,7 @@ def unique_path(folder: Path, filename: str) -> Path:
 
 def image_target(root: Path, page: Page, source_name: str) -> Path:
     """Where an image for this page goes: kb_images/<page>_<name>.<ext>."""
-    prefix = safe_name(Path(page.path).stem)
+    prefix = image_prefix(page)
     name = Path(source_name)
     stem = safe_name(name.stem)
     filename = f"{stem}{name.suffix.lower()}" if stem.startswith(prefix) else f"{prefix}_{stem}{name.suffix.lower()}"
@@ -320,42 +346,67 @@ def build_prompt(page: Page, material: Material, instructions: str = "", publish
         finish = ("Fix any problem it reports. Do NOT git add, commit, or push: the user asked for a local\n"
                   "  update only (this overrides the CLAUDE.md publishing rule for this job).")
         report = "and that it was updated locally only (not published)"
-    if page_text is not None:
-        read_step = (f"- The current content of {page.path} is at the end of this message (CURRENT PAGE), so you do\n"
-                     "  not need to read it again. Study its sections, then read the material.")
-        current = f"\nCURRENT PAGE ({page.path}):\n<<<PAGE\n{page_text}\nPAGE>>>\n"
+    current = ""
+    if page.new:
+        if page.name:
+            title_step = (f'- Page title: "{page.name}" (use it exactly; the file will be {page.path}).')
+        else:
+            title_step = ("- Page title: propose the best short title (2 to 4 words) for this material and the user's\n"
+                          "  instructions. It must differ from every page already listed on index.html.")
+        task = "create a NEW knowledge page from the material below"
+        steps = f"""{title_step}
+- Create the page FIRST with the new-page tool (never create the file another way):
+  .venv/Scripts/python.exe -m tools.new_page --title "<title>" --description "<one line>"
+  It creates html_pages/<Title>.html from the template and adds the home page entry. Write the description
+  like the other home page entries (one line, about 80 to 130 characters).
+- Then replace ALL template placeholder content with the material. Organize it in logical boxed sections
+  per subject with the expand function: full-width title boxes (class "card row-card title-box", see
+  html_pages/Science_Quick_Reference.html and html_pages/Timeline_of_Humanity.html for the markup), in a
+  logical order (general to specific, or chronological). Clean design, same look as the other pages.
+- Footer: "Source: <source file name, or JCR research>. Created {day}."
+- Images whose names start with "{NEW_IMAGE_PREFIX}_" belong to this page: rename each one to the page prefix
+  (the page file name in lowercase, e.g. html_pages/Solar_System.html -> solar_system_) with
+  mv kb_images/{NEW_IMAGE_PREFIX}_<name> kb_images/<prefix>_<name>, then link the new names."""
+        what = "the page title and file, what the page contains"
     else:
-        read_step = f"- Read {page.path} and its sections first, then read the material."
-        current = ""
+        if page_text is not None:
+            read_step = (f"- The current content of {page.path} is at the end of this message (CURRENT PAGE), so you\n"
+                         "  do not need to read it again. Study its sections, then read the material.")
+            current = f"\nCURRENT PAGE ({page.path}):\n<<<PAGE\n{page_text}\nPAGE>>>\n"
+        else:
+            read_step = f"- Read {page.path} and its sections first, then read the material."
+        task = (f'add the new material below to the page "{page.name}" ({page.path})' if material.lines else
+                f'apply the USER INSTRUCTIONS below to the page "{page.name}" ({page.path}); there is no new material')
+        steps = f"""{read_step}
+- Put each piece of information where it logically belongs: extend the matching box, row, table, or list,
+  keeping the page's existing order (chronological, by size, etc.). If nothing fits, create a new section
+  or box in the page's existing style (same classes, expand function, etc.).
+- Never duplicate facts already on the page. If the material updates a fact, replace the old value.
+- Update the footer date ("updated {day}"). If the page's scope changed, update its header description and
+  the matching description on index.html."""
+        what = "what was added and where"
     user_rules = ("\nUSER INSTRUCTIONS for this job. Carry out every one of them while you do the work above; they\n"
                   "take priority over the defaults above (but not over the git rule just stated). In your report,\n"
                   "say for each instruction what you did, or why it could not be done:\n"
                   f"<<<INSTRUCTIONS\n{instructions.strip()}\nINSTRUCTIONS>>>\n" if instructions.strip() else "")
-    task = (f'add the new material below to the page "{page.name}" ({page.path})' if material.lines else
-            f'apply the USER INSTRUCTIONS below to the page "{page.name}" ({page.path}); there is no new material')
     return f"""You are updating the JCR Knowledge Bank website in this folder. Follow CLAUDE.md exactly.
 
 TASK: {task}.
 
 How to do it:
-{read_step}
-- Put each piece of information where it logically belongs: extend the matching box, row, table, or list,
-  keeping the page's existing order (chronological, by size, etc.). If nothing fits, create a new section
-  or box in the page's existing style (same classes, expand function, etc.).
-- Never duplicate facts already on the page. If the material updates a fact, replace the old value.
+{steps}
 - Keep it clean, short, and concise, like a quick reference. American spelling. Bold key terms the way the
-  page does. No <style> blocks, no numbering badges. Add a shared class to assets/kb_style.css only if needed.
+  other pages do. No <style> blocks, no numbering badges. Add a shared class to assets/kb_style.css only if
+  needed.
 - Check the facts. Correct clear errors and list every correction in your report. Do not invent content.
 - Pages must not link to data/ or logs/.{images}
-- Update the footer date ("updated {day}"). If the page's scope changed, update its header description and
-  the matching description on index.html.
 - Then run the site check: .venv/Scripts/python.exe -m tools.site_check
   Run the tests (.venv/Scripts/python.exe -m pytest -q) ONLY if you changed a file outside html_pages/,
   index.html, and kb_images/ (for example assets/kb_style.css or assets/kb_common.js); the tests cover the
   site code, not page content. {finish}
-- If the material does not fit this page at all, or cannot be read, change nothing and explain why.
+- If the material cannot be read, or does not fit this page at all, change nothing and explain why.
 {user_rules}
-Finish with a short plain-text report for the user (no tables): what was added and where, any corrections,
+Finish with a short plain-text report for the user (no tables): {what}, any corrections,
 {report}.
 
 MATERIAL:
@@ -373,15 +424,15 @@ def find_claude() -> str:
     raise FileNotFoundError("Claude Code (claude.exe) was not found. Install it or add it to PATH.")
 
 
-def allowed_tools(publish: bool) -> list[str]:
-    """Tools Claude may use: file edits, checks, and git publishing only when asked."""
-    return BASE_TOOLS + (PUBLISH_TOOLS if publish else [])
+def allowed_tools(publish: bool, new: bool = False) -> list[str]:
+    """Tools Claude may use: file edits, checks, git publishing only when asked, page creation for a new page."""
+    return BASE_TOOLS + (PUBLISH_TOOLS if publish else []) + (NEW_PAGE_TOOLS if new else [])
 
 
-def claude_args(executable: str, publish: bool = True) -> list[str]:
+def claude_args(executable: str, publish: bool = True, new: bool = False) -> list[str]:
     """Command line for a non-interactive Claude run (the prompt goes to stdin)."""
     return [executable, "-p", "--output-format", "text", "--permission-mode", "acceptEdits",
-            "--allowedTools", *allowed_tools(publish)]
+            "--allowedTools", *allowed_tools(publish, new)]
 
 
 def _no_window() -> int:
@@ -554,6 +605,22 @@ class AddDataWindow:
         self.page_box.grid(row=row, column=1, sticky="ew", padx=(12, 8), pady=4)
         self.view_btn = tk.Button(block, text="View page...", font=SMALL_FONT, command=self.view_page)
         self.view_btn.grid(row=row, column=2, sticky="w", pady=4)
+        self.page_box.bind("<<ComboboxSelected>>", lambda _e: self._show_new_title())
+        row += 1
+
+        # Shown only when "New Page" is selected.
+        self.new_title_label = tk.Label(block, text="New page title:", bg=WHITE, fg=TEXT_COLOR, font=LABEL_FONT,
+                                        anchor="w")
+        self.new_title_label.grid(row=row, column=0, sticky="w", pady=4)
+        self.new_title_var = tk.StringVar()
+        self.new_title_entry = tk.Entry(block, textvariable=self.new_title_var, font=ENTRY_FONT)
+        self.new_title_entry.grid(row=row, column=1, sticky="ew", padx=(12, 8), pady=4)
+        self.new_title_hint = tk.Label(block, text="(blank = auto)", bg=WHITE, fg=GRAY,
+                                       font=SMALL_FONT, anchor="w")
+        self.new_title_hint.grid(row=row, column=2, sticky="w", pady=4)
+        self.new_title_widgets = (self.new_title_label, self.new_title_entry, self.new_title_hint)
+        for widget in self.new_title_widgets:
+            widget.grid_remove()
         row += 1
 
         self._label(block, "Source file:", row)
@@ -691,7 +758,7 @@ class AddDataWindow:
         matching = self.match_var.get()
         state = "disabled" if self.busy or matching else "normal"
         for widget in (self.browse_btn, self.file_entry, self.view_btn, self.github_check,
-                       self.instructions, self.text):
+                       self.instructions, self.text, self.new_title_entry):
             widget.configure(state=state)
         self.page_box.configure(state="disabled" if self.busy or matching else "readonly")
         for box in (self.instructions, self.text):
@@ -702,24 +769,41 @@ class AddDataWindow:
 
     # ----- actions -----
 
-    def load_pages(self) -> None:
+    def load_pages(self, select: str = "") -> None:
         self.pages = list_pages()
-        self.page_box["values"] = [p.name for p in self.pages]
+        self.page_box["values"] = [NEW_PAGE] + [p.name for p in self.pages]
+        if select:
+            self.page_var.set(select)
+        self._show_new_title()
         log.info("Add data: %d page(s) listed", len(self.pages))
+
+    def _show_new_title(self) -> None:
+        """Show the New page title row only while "New Page" is selected."""
+        for widget in self.new_title_widgets:
+            if self.page_var.get() == NEW_PAGE:
+                widget.grid()
+            else:
+                widget.grid_remove()
 
     def selected_page(self) -> Page | None:
         name = self.page_var.get()
+        if name == NEW_PAGE:
+            return new_page(self.new_title_var.get())
         return next((p for p in self.pages if p.name == name), None)
 
     def page_url(self, page: Page, live: bool = True) -> str:
+        """Live or local address of the page (the home page while a new page has no file yet)."""
         if live:
-            return self.config["site_url"].rstrip("/") + "/" + page.path
-        return (PROJECT_DIR / page.path).as_uri()
+            return self.config["site_url"].rstrip("/") + "/" + (page.path if page.path and not page.new else "")
+        return (PROJECT_DIR / (page.path if page.path and not page.new else "index.html")).as_uri()
 
     def view_page(self) -> None:
         page = self.selected_page()
         if page is None:
             self._set_status("Choose a target page first.", RED)
+            return
+        if page.new:
+            self._set_status("The new page does not exist yet: it is created when you press PROCESS.", RED)
             return
         webbrowser.open(self.page_url(page, live=self.github_var.get()))
 
@@ -747,6 +831,13 @@ class AddDataWindow:
         if not file_text and not text and not instructions:
             self._set_status("Choose a source file, enter text, or enter instructions.", RED)
             return
+        if page.new and page.name:
+            taken = {p.name.lower() for p in self.pages} | {Path(p.path).name.lower() for p in self.pages}
+            if page.name.lower() in taken or Path(page.path).name.lower() in taken \
+                    or (PROJECT_DIR / page.path).exists():
+                self._set_status(f'A page named "{page.name}" already exists. Choose another title, or pick '
+                                 "that page in the list to add to it.", RED)
+                return
         file = Path(file_text) if file_text else None
         if file is not None:
             if not file.is_file():
@@ -757,29 +848,31 @@ class AddDataWindow:
                                  f"{', '.join(sorted(SUPPORTED_TYPES))}", RED)
                 return
         log.info("User: PROCESS page=%s file=%s text=%d chars instructions=%d chars github=%s",
-                 page.path, file, len(text), len(instructions), publish)
+                 page.path or "(new page, title by Claude)", file, len(text), len(instructions), publish)
         self._set_busy(True)
         self.started = time.monotonic()
-        self._tick(publish)
+        self._tick(publish, page.new)
         threading.Thread(target=self._run_job, args=(page, file, text, instructions, publish),
                          daemon=True, name="add-data").start()
 
-    def _tick(self, publish: bool) -> None:
+    def _tick(self, publish: bool, new: bool = False) -> None:
         if self.started == 0.0:
             return
         elapsed = int(time.monotonic() - self.started)
-        where = "checking, and publishing" if publish else "and checking (local only)"
-        self._set_status(f"Working... {elapsed // 60}:{elapsed % 60:02d}   Claude is updating the page {where}. "
+        what = "creating the new page" if new else "updating the page"
+        where = ", checking, and publishing" if publish else " and checking (local only)"
+        self._set_status(f"Working... {elapsed // 60}:{elapsed % 60:02d}   Claude is {what}{where}. "
                          "This usually takes 1 to 5 minutes.", BLUE)
-        self.root.after(1000, self._tick, publish)
+        self.root.after(1000, self._tick, publish, new)
 
     def _run_job(self, page: Page, file: Path | None, text: str, instructions: str, publish: bool) -> None:
         try:
             before = changed_files()
+            pages_before = {p.path for p in list_pages()}
             material = prepare_material(page, file, text, instructions=instructions)
-            page_text = (PROJECT_DIR / page.path).read_text(encoding="utf-8")
+            page_text = None if page.new else (PROJECT_DIR / page.path).read_text(encoding="utf-8")
             prompt = build_prompt(page, material, instructions, publish, page_text=page_text)
-            args = claude_args(find_claude(), publish)
+            args = claude_args(find_claude(), publish, new=page.new)
             timeout = float(self.config.get("add_data_timeout_minutes", 20)) * 60
             log.info("Add data: starting Claude for %s (publish=%s)", page.path, publish)
             self.process = subprocess.Popen(args, cwd=PROJECT_DIR, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
@@ -799,6 +892,9 @@ class AddDataWindow:
             if code != 0:
                 raise RuntimeError((err or out or f"Claude exited with code {code}").strip())
             changed = [] if publish else files_changed_since(before)
+            if page.new:  # the page Claude created (now listed on the home page)
+                created = [p for p in list_pages() if p.path not in pages_before]
+                page = created[0] if created else page
             self._post(self._done, page, out.strip() or "Done.", publish, changed, None)
         except Exception as exc:  # noqa: BLE001 - reported to the user
             log.exception("Add data failed")
@@ -822,6 +918,11 @@ class AddDataWindow:
         self.file_var.set("")
         self.text.delete("1.0", "end")
         self.instructions.delete("1.0", "end")
+        if self.page_var.get() == NEW_PAGE:  # list the new page and select it, for follow-up additions
+            self.new_title_var.set("")
+            self.load_pages(select="" if page.new else page.name)
+        if page.new and not page.name:
+            page = Page("New page", "", new=True)  # not found on the home page; the report explains
         if publish:
             self._set_status(f"Done: {page.name}. The live page updates in 1 to 2 minutes.")
             ResultWindow(self.root, page, report, self.page_url(page, live=True))
