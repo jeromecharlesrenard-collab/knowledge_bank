@@ -1,25 +1,31 @@
-"""ADD KB DATA: add a source file or pasted text to a knowledge page.
+"""KB ADD DATA: add a source file or pasted text to a knowledge page.
 
-A window (same style as the PREVIEW window) collects:
+A maximized window (same style as the Chart Price Plot app) collects:
   - the target page (drop-down list of the pages on the home page)
-  - a source file (text, Word .docx, PDF, or image), and/or
-  - pasted text
+  - a source file (.docx, .txt, .xlsx, .jpg, .png, .html), and/or pasted text
+  - optional instructions (how or where to add the data)
+  - "Update GitHub" (checked by default)
 PROCESS prepares the material, then hands the placement to Claude Code
 (`claude -p`, run in the project folder so CLAUDE.md applies). Claude puts each
 piece of information in the right place on the page, or in a new section in the
-page style, runs the site check and tests, then commits and pushes to GitHub.
+page style, and runs the site check and tests.
+  - Update GitHub checked: Claude also commits and pushes.
+  - Unchecked: only the local files change; a pop-up then offers to publish.
+    Publishing from the pop-up commits only the files this job changed.
 
 Preparation done here, before Claude runs:
   - images are copied into kb_images/ as <page>_<name>.<ext>
   - Word documents are converted to text (bold kept as **...**, tables as rows);
     their embedded pictures are copied into kb_images/ too
-  - other files are copied into logs/add_data/ (git-ignored) for Claude to read
+  - Excel workbooks are converted to text (one block per sheet, cells as rows)
+  - text and HTML files are copied into logs/add_data/ (git-ignored) for Claude to read
 
-Usage:  .venv\\Scripts\\pythonw.exe main.py --add-data   (or the ADD KB DATA shortcut)
+Usage:  .venv\\Scripts\\pythonw.exe main.py --add-data   (or the KB ADD DATA shortcut)
 """
 
 from __future__ import annotations
 
+import hashlib
 import html
 import os
 import re
@@ -35,36 +41,54 @@ import zipfile
 from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
-from tkinter import filedialog, messagebox, ttk
+from tkinter import filedialog, messagebox
+from tkinter import font as tkfont
+from tkinter import ttk
 from typing import Any
 
 from tools.kb_core import PROJECT_DIR, log
 
-FONT = "Arial"
-GREEN = "#1a7f37"
+# Chart Price Plot look
+WHITE = "#FFFFFF"
+TEXT_COLOR = "#000000"
+GRAY = "#444444"
+TITLE_FONT = ("Segoe UI", 20, "bold")
+SUBTITLE_FONT = ("Segoe UI", 10)
+LABEL_FONT = ("Segoe UI", 12)
+ENTRY_FONT = ("Segoe UI", 12)
+TEXT_FONT = ("Segoe UI", 10)
+SMALL_FONT = ("Segoe UI", 10)
+BUTTON_FONT = ("Segoe UI", 9, "bold")
+STATUS_FONT = ("Segoe UI", 10)
+GREEN = "#0a6b1a"
 BLUE = "#0b57d0"
 RED = "#b3261e"
+TEXT_WIDTH = 0.8  # instruction and text boxes: 80% of the window width
 
 WORK_DIR_NAME = Path("logs") / "add_data"
-TEXT_TYPES = {".txt", ".md", ".csv", ".json", ".html", ".htm"}
-IMAGE_TYPES = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg"}
+TEXT_TYPES = {".txt", ".html", ".htm"}
+IMAGE_TYPES = {".jpg", ".jpeg", ".png"}
 WORD_TYPES = {".docx"}
-PDF_TYPES = {".pdf"}
-SUPPORTED_TYPES = TEXT_TYPES | IMAGE_TYPES | WORD_TYPES | PDF_TYPES
+EXCEL_TYPES = {".xlsx"}
+SUPPORTED_TYPES = TEXT_TYPES | IMAGE_TYPES | WORD_TYPES | EXCEL_TYPES
 
 ENTRY_LINK = re.compile(r'<a href="(html_pages/[^"]+\.html)"[^>]*>\s*<span class="name">(.*?)</span>', re.S)
 W_NS = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
+X_NS = "{http://schemas.openxmlformats.org/spreadsheetml/2006/main}"
+R_NS = "{http://schemas.openxmlformats.org/officeDocument/2006/relationships}"
+PKG_NS = "{http://schemas.openxmlformats.org/package/2006/relationships}"
 
-# Claude may only edit files, run the site check and tests, and use git to publish.
-ALLOWED_TOOLS = [
+# Claude may only edit files and run the site check and tests ...
+BASE_TOOLS = [
     "Read", "Edit", "Write", "Glob", "Grep",
     "Bash(.venv/Scripts/python.exe -m tools.site_check:*)",
     "Bash(.venv/Scripts/python.exe -m pytest:*)",
     "Bash(.venv\\Scripts\\python.exe -m tools.site_check:*)",
     "Bash(.venv\\Scripts\\python.exe -m pytest:*)",
     "Bash(git status:*)", "Bash(git diff:*)", "Bash(git log:*)",
-    "Bash(git add:*)", "Bash(git commit:*)", "Bash(git push:*)",
 ]
+# ... and, only when "Update GitHub" is checked, use git to publish.
+PUBLISH_TOOLS = ["Bash(git add:*)", "Bash(git commit:*)", "Bash(git push:*)"]
 
 
 @dataclass
@@ -114,7 +138,7 @@ def image_target(root: Path, page: Page, source_name: str) -> Path:
     prefix = safe_name(Path(page.path).stem)
     name = Path(source_name)
     stem = safe_name(name.stem)
-    filename = f"{prefix}_{stem}{name.suffix.lower()}" if not stem.startswith(prefix) else f"{stem}{name.suffix.lower()}"
+    filename = f"{stem}{name.suffix.lower()}" if stem.startswith(prefix) else f"{prefix}_{stem}{name.suffix.lower()}"
     folder = root / "kb_images"
     folder.mkdir(exist_ok=True)
     return unique_path(folder, filename)
@@ -161,6 +185,55 @@ def docx_to_text(path: Path) -> tuple[str, list[tuple[str, bytes]]]:
     return text, media
 
 
+def _column_index(ref: str) -> int:
+    """Zero-based column number of a cell reference such as 'C7'."""
+    letters = re.match(r"[A-Z]+", ref.upper())
+    index = 0
+    for ch in letters.group(0) if letters else "A":
+        index = index * 26 + ord(ch) - 64
+    return index - 1
+
+
+def xlsx_to_text(path: Path) -> str:
+    """Return every sheet of an .xlsx as text: a '## Sheet' heading, then 'a | b | c' rows."""
+    with zipfile.ZipFile(path) as archive:
+        names = set(archive.namelist())
+        shared: list[str] = []
+        if "xl/sharedStrings.xml" in names:
+            for item in ET.fromstring(archive.read("xl/sharedStrings.xml")).iter(f"{X_NS}si"):
+                shared.append("".join(t.text or "" for t in item.iter(f"{X_NS}t")))
+        rels = {r.get("Id"): r.get("Target", "")
+                for r in ET.fromstring(archive.read("xl/_rels/workbook.xml.rels")).iter(f"{PKG_NS}Relationship")}
+        workbook = ET.fromstring(archive.read("xl/workbook.xml"))
+        blocks: list[str] = []
+        for sheet in workbook.iter(f"{X_NS}sheet"):
+            target = rels.get(sheet.get(f"{R_NS}id"), "").lstrip("/")
+            target = target if target.startswith("xl/") else f"xl/{target}"
+            if target not in names:
+                continue
+            rows: list[str] = []
+            for row in ET.fromstring(archive.read(target)).iter(f"{X_NS}row"):
+                values: dict[int, str] = {}
+                for cell in row.findall(f"{X_NS}c"):
+                    kind = cell.get("t", "n")
+                    value = cell.find(f"{X_NS}v")
+                    if kind == "s" and value is not None:
+                        text = shared[int(value.text or 0)]
+                    elif kind == "inlineStr":
+                        text = "".join(t.text or "" for t in cell.iter(f"{X_NS}t"))
+                    elif kind == "b" and value is not None:
+                        text = "TRUE" if value.text == "1" else "FALSE"
+                    else:
+                        text = value.text or "" if value is not None else ""
+                    if text.strip():
+                        values[_column_index(cell.get("r", "A"))] = text.strip()
+                if values:
+                    rows.append(" | ".join(values.get(i, "") for i in range(max(values) + 1)))
+            if rows:
+                blocks.append(f"## Sheet: {sheet.get('name', '')}\n" + "\n".join(rows))
+    return "\n\n".join(blocks)
+
+
 def prepare_material(page: Page, file: Path | None, text: str, root: Path = PROJECT_DIR) -> Material:
     """Copy or convert the inputs and describe them for the prompt."""
     material = Material()
@@ -193,10 +266,15 @@ def prepare_material(page: Page, file: Path | None, text: str, root: Path = PROJ
                 material.images.append(target)
                 material.lines.append(f"- Picture from the document, already copied to kb_images/{target.name} "
                                       f"(link it as ../kb_images/{target.name}).")
+        elif suffix in EXCEL_TYPES:
+            converted = work / f"{safe_name(file.stem)}.txt"
+            converted.write_text(xlsx_to_text(file), encoding="utf-8")
+            material.lines.append(f"- Source Excel workbook '{file.name}', converted to text in "
+                                  f"{converted.relative_to(root).as_posix()} (one block per sheet, cells as 'a | b').")
         else:
             copied = work / file.name
             shutil.copy2(file, copied)
-            kind = "PDF" if suffix in PDF_TYPES else "text file"
+            kind = "HTML file" if suffix in {".html", ".htm"} else "text file"
             material.lines.append(f"- Source {kind} '{file.name}', copied to {copied.relative_to(root).as_posix()}.")
 
     if text.strip():
@@ -208,12 +286,23 @@ def prepare_material(page: Page, file: Path | None, text: str, root: Path = PROJ
     return material
 
 
-def build_prompt(page: Page, material: Material, today: date | None = None) -> str:
+def build_prompt(page: Page, material: Material, instructions: str = "", publish: bool = True,
+                 today: date | None = None) -> str:
     """The instructions given to Claude for this job."""
     day = (today or date.today()).isoformat()
     images = (f"\n- {len(material.images)} image(s) were copied into kb_images/. Show each one where it belongs, "
               "in the page style, with alt text. If an image is not useful on the page, do not show it, and "
               "say so in your report." if material.images else "")
+    if publish:
+        finish = ("Fix any problem they report. Then git add only the files you changed (including new kb_images\n"
+                  "  files), git commit with a short message, and git push origin main.")
+        report = "and whether it was published"
+    else:
+        finish = ("Fix any problem they report. Do NOT git add, commit, or push: the user asked for a local\n"
+                  "  update only (this overrides the CLAUDE.md publishing rule for this job).")
+        report = "and that it was updated locally only (not published)"
+    user_rules = (f"\nUSER INSTRUCTIONS for this job (follow them; they take priority over the defaults above):\n"
+                  f"<<<INSTRUCTIONS\n{instructions.strip()}\nINSTRUCTIONS>>>\n" if instructions.strip() else "")
     return f"""You are updating the JCR Knowledge Bank website in this folder. Follow CLAUDE.md exactly.
 
 TASK: add the new material below to the page "{page.name}" ({page.path}).
@@ -231,12 +320,11 @@ How to do it:
 - Update the footer date ("updated {day}"). If the page's scope changed, update its header description and
   the matching description on index.html.
 - Then run: .venv/Scripts/python.exe -m tools.site_check  and  .venv/Scripts/python.exe -m pytest -q
-  Fix any problem they report. Then git add only the files you changed (including new kb_images files),
-  git commit with a short message, and git push origin main.
+  {finish}
 - If the material does not fit this page at all, or cannot be read, change nothing and explain why.
-
+{user_rules}
 Finish with a short plain-text report for the user (no tables): what was added and where, any corrections,
-and whether it was published.
+{report}.
 
 MATERIAL:
 """ + "\n".join(material.lines) + "\n"
@@ -253,16 +341,69 @@ def find_claude() -> str:
     raise FileNotFoundError("Claude Code (claude.exe) was not found. Install it or add it to PATH.")
 
 
-def claude_args(executable: str) -> list[str]:
+def allowed_tools(publish: bool) -> list[str]:
+    """Tools Claude may use: file edits, checks, and git publishing only when asked."""
+    return BASE_TOOLS + (PUBLISH_TOOLS if publish else [])
+
+
+def claude_args(executable: str, publish: bool = True) -> list[str]:
     """Command line for a non-interactive Claude run (the prompt goes to stdin)."""
     return [executable, "-p", "--output-format", "text", "--permission-mode", "acceptEdits",
-            "--allowedTools", *ALLOWED_TOOLS]
+            "--allowedTools", *allowed_tools(publish)]
+
+
+def _no_window() -> int:
+    return subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
+
+
+def git(args: list[str], root: Path = PROJECT_DIR) -> str:
+    """Run a git command in the project folder and return its output (raises on failure)."""
+    result = subprocess.run(["git", *args], cwd=root, capture_output=True, text=True, encoding="utf-8",
+                            errors="replace", creationflags=_no_window())
+    if result.returncode != 0:
+        raise RuntimeError(f"git {' '.join(args)} failed:\n{(result.stderr or result.stdout).strip()}")
+    return result.stdout
+
+
+def changed_files(root: Path = PROJECT_DIR) -> dict[str, str]:
+    """Changed or new files (git status) mapped to a hash of their content ('' if deleted)."""
+    out = git(["status", "--porcelain=v1", "-z", "-uall"], root)
+    entries = out.split("\0")
+    result: dict[str, str] = {}
+    i = 0
+    while i < len(entries):
+        entry = entries[i]
+        i += 1
+        if len(entry) < 4:
+            continue
+        status, path = entry[:2], entry[3:]
+        if status[0] in "RC":
+            i += 1  # the next entry is the original name
+        file = root / path
+        result[path] = hashlib.sha1(file.read_bytes()).hexdigest() if file.is_file() else ""
+    return result
+
+
+def files_changed_since(before: dict[str, str], root: Path = PROJECT_DIR) -> list[str]:
+    """Files that changed after the snapshot 'before' was taken."""
+    after = changed_files(root)
+    return sorted(path for path, digest in after.items() if before.get(path) != digest)
+
+
+def publish_files(paths: list[str], message: str, root: Path = PROJECT_DIR) -> str:
+    """Commit only these files and push to GitHub. Returns the new commit line."""
+    if not paths:
+        raise ValueError("No changed files to publish.")
+    git(["add", "-A", "--", *paths], root)
+    git(["commit", "-m", message, "--", *paths], root)
+    git(["push", "origin", "main"], root)
+    return git(["log", "--oneline", "-1"], root).strip()
 
 
 # ---------- Window ----------
 
 class AddDataWindow:
-    """The ADD KB DATA window."""
+    """The KB ADD DATA window (Chart Price Plot style, maximized)."""
 
     def __init__(self, root: tk.Tk, config: dict[str, Any]) -> None:
         self.root = root
@@ -271,99 +412,187 @@ class AddDataWindow:
         self.started = 0.0
         self.pages: list[Page] = []
 
-        root.title("knowledge_bank - add data")
-        root.configure(bg="white")
+        root.title("KB Add Data")
+        root.configure(bg=WHITE)
         icon = PROJECT_DIR / "assets" / "knowledge_bank.ico"
         if icon.exists():
             root.iconbitmap(str(icon))
-        width = 900
-        root.resizable(False, False)
-        root.option_add("*TCombobox*Listbox.font", (FONT, 10))
+        # Normal window chrome (minimize / maximize / close), maximized on open.
+        root.state("zoomed")
 
-        title = tk.Frame(root, bg="white")
-        title.pack(pady=(18, 10))
-        tk.Label(title, text="JCR KNOWLEDGE BANK ", font=("Arial Black", 18), bg="white", fg="black").pack(side="left")
-        tk.Label(title, text="ADD DATA", font=("Arial Black", 18), bg="white", fg=BLUE).pack(side="left")
-
-        # Everything sits in a column 80% of the window width (10% margin each side).
-        body = tk.Frame(root, bg="white", width=int(width * 0.8))
-        body.pack(fill="x", padx=int(width * 0.1))
-        body.columnconfigure(1, weight=1)
-
-        self._label(body, "Target page", 0)
-        page_row = tk.Frame(body, bg="white")
-        page_row.grid(row=0, column=1, sticky="ew", pady=4)
         self.page_var = tk.StringVar()
-        self.page_box = ttk.Combobox(page_row, textvariable=self.page_var, state="readonly", font=(FONT, 10))
-        self.page_box.pack(side="left", fill="x", expand=True)
-        self.view_btn = self._small_button(page_row, "VIEW", self.view_page)
-
-        self._label(body, "Source file", 1)
-        file_row = tk.Frame(body, bg="white")
-        file_row.grid(row=1, column=1, sticky="ew", pady=4)
         self.file_var = tk.StringVar()
-        self.file_entry = tk.Entry(file_row, textvariable=self.file_var, font=(FONT, 10), relief="solid", bd=1)
-        self.file_entry.pack(side="left", fill="x", expand=True, ipady=2)
-        self.browse_btn = self._small_button(file_row, "BROWSE", self.browse)
+        self.github_var = tk.BooleanVar(value=True)
+        self.status_var = tk.StringVar(value="Choose a page, then a source file or text.")
 
-        self._label(body, "or Text", 2)
-        text_frame = tk.Frame(body, bg="white", relief="solid", bd=1)
-        text_frame.grid(row=3, column=0, columnspan=2, sticky="ew")
-        self.text = tk.Text(text_frame, height=20, font=(FONT, 10), wrap="word", relief="flat", bd=4, undo=True)
-        scroll = tk.Scrollbar(text_frame, command=self.text.yview)
-        self.text.configure(yscrollcommand=scroll.set)
-        scroll.pack(side="right", fill="y")
-        self.text.pack(side="left", fill="both", expand=True)
-
-        self.status = tk.Label(body, text="Choose a page, then a source file or text.", font=(FONT, 10),
-                               bg="white", fg=GREEN, wraplength=int(width * 0.8), justify="center")
-        self.status.grid(row=4, column=0, columnspan=2, pady=(10, 6))
-
-        buttons = tk.Frame(body, bg="white")
-        buttons.grid(row=5, column=0, columnspan=2, pady=(0, 16))
-        self.process_btn = self._button(buttons, "PROCESS", self.process_data)
-        self._button(buttons, "EXIT", self.exit)
-
-        # Size to the content, centered on the screen.
-        root.update_idletasks()
-        height = root.winfo_reqheight()
-        x = (root.winfo_screenwidth() - width) // 2
-        y = max(0, (root.winfo_screenheight() - height) // 2 - 20)
-        root.geometry(f"{width}x{height}+{x}+{y}")
-
+        self._build_layout()
         root.protocol("WM_DELETE_WINDOW", self.exit)
         root.bind("<Escape>", lambda _e: self.exit())
         root.report_callback_exception = self._callback_error  # type: ignore[assignment]
         self.load_pages()
 
-    # ----- widgets -----
+    # ----- layout -----
 
-    def _label(self, parent: tk.Frame, text: str, row: int, sticky: str = "w") -> None:
-        tk.Label(parent, text=text, font=(FONT, 11, "bold"), bg="white").grid(row=row, column=0, sticky=sticky,
-                                                                            padx=(0, 12), pady=6)
+    def _build_layout(self) -> None:
+        # The input block sits in a scrollable canvas: centered when it fits, top-aligned
+        # with a right scrollbar when it does not (same as Chart Price Plot).
+        container = tk.Frame(self.root, bg=WHITE)
+        container.pack(fill="both", expand=True)
+        container.grid_rowconfigure(0, weight=1)
+        container.grid_columnconfigure(0, weight=1)
+        canvas = tk.Canvas(container, bg=WHITE, highlightthickness=0)
+        canvas.grid(row=0, column=0, sticky="nsew")
+        v_scroll = tk.Scrollbar(container, orient="vertical", command=canvas.yview)
+        v_scroll.grid(row=0, column=1, sticky="ns")
+        v_scroll.grid_remove()
+        canvas.configure(yscrollcommand=v_scroll.set)
+        self.canvas, self.v_scroll = canvas, v_scroll
 
-    def _button(self, parent: tk.Frame, text: str, command: Any) -> tk.Button:
-        btn = tk.Button(parent, text=text, command=command, font=(FONT, 10, "bold"), width=12,
-                        bg="white", fg="black", relief="solid", bd=1, cursor="hand2")
-        btn.pack(side="left", padx=8)
-        return btn
+        block = tk.Frame(canvas, bg=WHITE)
+        block_window = canvas.create_window(0, 0, window=block, anchor="n")
+        block.columnconfigure(1, weight=1)
 
-    def _small_button(self, parent: tk.Frame, text: str, command: Any) -> tk.Button:
-        btn = tk.Button(parent, text=text, command=command, font=(FONT, 9, "bold"), width=8,
-                        bg="white", fg="black", relief="solid", bd=1, cursor="hand2")
-        btn.pack(side="left", padx=(8, 0))
-        return btn
+        row = 0
+        tk.Label(block, text="KB Add Data", bg=WHITE, fg=TEXT_COLOR, font=TITLE_FONT, anchor="w"
+                 ).grid(row=row, column=0, columnspan=3, sticky="w", pady=(0, 4))
+        row += 1
+        tk.Label(block, text="Add a source file or text to a JCR Knowledge Bank page:", bg=WHITE, fg=GRAY,
+                 font=SUBTITLE_FONT, anchor="w").grid(row=row, column=0, columnspan=3, sticky="w", pady=(0, 10))
+        row += 1
+
+        self._label(block, "Target page:", row)
+        self.page_box = ttk.Combobox(block, textvariable=self.page_var, state="readonly", font=ENTRY_FONT)
+        self.page_box.grid(row=row, column=1, sticky="ew", padx=(12, 8), pady=4)
+        self.view_btn = tk.Button(block, text="View page...", font=SMALL_FONT, command=self.view_page)
+        self.view_btn.grid(row=row, column=2, sticky="w", pady=4)
+        row += 1
+
+        self._label(block, "Source file:", row)
+        self.file_entry = tk.Entry(block, textvariable=self.file_var, font=ENTRY_FONT)
+        self.file_entry.grid(row=row, column=1, sticky="ew", padx=(12, 8), pady=4)
+        self.browse_btn = tk.Button(block, text="Browse...", font=SMALL_FONT, command=self.browse)
+        self.browse_btn.grid(row=row, column=2, sticky="w", pady=4)
+        row += 1
+
+        self._label(block, "Instructions (optional):", row, columnspan=2, pady=(6, 2))
+        self.github_check = tk.Checkbutton(block, text="Update GitHub", variable=self.github_var, bg=WHITE,
+                                           fg=TEXT_COLOR, font=SMALL_FONT, anchor="w",
+                                           activebackground=WHITE)
+        self.github_check.grid(row=row, column=2, sticky="w", pady=(6, 2))
+        row += 1
+        self.instructions = self._text_box(block, row, height=5)
+        row += 1
+
+        self._label(block, "Text:", row, columnspan=2, pady=(6, 2))
+        row += 1
+        self.text = self._text_box(block, row, height=20)
+
+        # Button column right of the text box (Chart Price Plot style).
+        button_col = tk.Frame(block, bg=WHITE)
+        button_col.grid(row=row, column=2, sticky="nw", padx=(12, 0))
+        self.process_btn = tk.Button(button_col, text="PROCESS", font=BUTTON_FONT, command=self.process_data,
+                                     width=8, padx=15, pady=5, fg=TEXT_COLOR)
+        self.process_btn.pack(side="top")
+        tk.Button(button_col, text="EXIT", font=BUTTON_FONT, command=self.exit, width=8, padx=15, pady=5,
+                  fg=TEXT_COLOR).pack(side="top", pady=(16, 0))
+        row += 1
+
+        self.status = tk.Label(block, textvariable=self.status_var, bg=WHITE, fg=GREEN, font=STATUS_FONT,
+                               anchor="w", justify="left")
+        self.status.grid(row=row, column=0, columnspan=3, sticky="w", pady=(6, 0))
+
+        def relayout(_event: Any = None) -> None:
+            cw, ch = canvas.winfo_width(), canvas.winfo_height()
+            # Text boxes take 80% of the window width; the button column sits to their right.
+            width = int(cw * TEXT_WIDTH) + button_col.winfo_reqwidth() + 12
+            canvas.itemconfigure(block_window, width=min(width, cw - 20))
+            self.status.configure(wraplength=max(300, int(cw * TEXT_WIDTH)))
+            bh = block.winfo_reqheight()
+            margin = 8
+            fits = bh + 2 * margin <= ch
+            y = (ch - bh) // 2 if fits else margin
+            canvas.coords(block_window, cw // 2, y)
+            canvas.configure(scrollregion=(0, 0, cw, max(ch, bh + 2 * margin)))
+            if fits:
+                v_scroll.grid_remove()
+                canvas.yview_moveto(0)
+            else:
+                v_scroll.grid()
+
+        block.bind("<Configure>", relayout)
+        canvas.bind("<Configure>", relayout)
+        self.root.bind_all("<MouseWheel>", self._on_mouse_wheel)
+        self.root.bind_all("<Control-MouseWheel>", self._on_ctrl_mouse_wheel)
+        self._install_zoom_fonts(block)
+
+    def _label(self, parent: tk.Frame, text: str, row: int, columnspan: int = 1,
+               pady: tuple[int, int] | int = 6) -> None:
+        tk.Label(parent, text=text, bg=WHITE, fg=TEXT_COLOR, font=LABEL_FONT, anchor="w"
+                 ).grid(row=row, column=0, columnspan=columnspan, sticky="w", pady=pady)
+
+    def _text_box(self, parent: tk.Frame, row: int, height: int) -> tk.Text:
+        frame = tk.Frame(parent, bg=WHITE, relief="sunken", bd=1)
+        frame.grid(row=row, column=0, columnspan=2, sticky="ew")
+        box = tk.Text(frame, height=height, font=TEXT_FONT, wrap="word", relief="flat", bd=4, undo=True)
+        scroll = tk.Scrollbar(frame, command=box.yview)
+        box.configure(yscrollcommand=scroll.set)
+        scroll.pack(side="right", fill="y")
+        box.pack(side="left", fill="both", expand=True)
+        return box
+
+    def _on_mouse_wheel(self, event: tk.Event) -> None:
+        # Text boxes scroll themselves; the window scrolls only when taller than the screen.
+        if isinstance(event.widget, tk.Text):
+            return
+        if self.v_scroll.winfo_ismapped():
+            self.canvas.yview_scroll(int(-event.delta / 120), "units")
+
+    def _install_zoom_fonts(self, widget: tk.Misc) -> None:
+        """Share one Font per font spec so Ctrl + mouse wheel can zoom the whole window."""
+        self._zoom = 1.0
+        self._zoom_fonts: dict[str, tuple[tkfont.Font, int]] = {}
+
+        def walk(w: tk.Misc) -> None:
+            try:
+                spec = w.cget("font")
+            except tk.TclError:
+                spec = None
+            if spec:
+                key = str(spec)
+                if key not in self._zoom_fonts:
+                    f = tkfont.Font(root=self.root, font=spec)
+                    self._zoom_fonts[key] = (f, f.cget("size"))
+                try:
+                    w.configure(font=self._zoom_fonts[key][0])
+                except tk.TclError:
+                    pass
+            for child in w.winfo_children():
+                walk(child)
+
+        walk(widget)
+
+    def _on_ctrl_mouse_wheel(self, event: tk.Event) -> str:
+        step = 0.1 if event.delta > 0 else -0.1
+        self._zoom = min(2.0, max(0.6, round(self._zoom + step, 1)))
+        for f, base in self._zoom_fonts.values():
+            sign = -1 if base < 0 else 1
+            f.configure(size=sign * max(6, round(abs(base) * self._zoom)))
+        return "break"
 
     def _callback_error(self, exc_type: type[BaseException], exc: BaseException, tb: Any) -> None:
         log.error("Window callback error", exc_info=(exc_type, exc, tb))
         messagebox.showerror("Error", f"{exc}\n\nDetails are in logs\\app.log", parent=self.root)
 
+    def _set_status(self, text: str, color: str = GREEN) -> None:
+        self.status_var.set(text)
+        self.status.configure(fg=color)
+
     def _set_busy(self, busy: bool) -> None:
         state = "disabled" if busy else "normal"
-        for widget in (self.process_btn, self.browse_btn, self.file_entry, self.view_btn):
-            widget.config(state=state)
-        self.page_box.config(state="disabled" if busy else "readonly")
-        self.text.config(state=state)
+        for widget in (self.process_btn, self.browse_btn, self.file_entry, self.view_btn, self.github_check,
+                       self.instructions, self.text):
+            widget.configure(state=state)
+        self.page_box.configure(state="disabled" if busy else "readonly")
 
     # ----- actions -----
 
@@ -376,19 +605,24 @@ class AddDataWindow:
         name = self.page_var.get()
         return next((p for p in self.pages if p.name == name), None)
 
+    def page_url(self, page: Page, live: bool = True) -> str:
+        if live:
+            return self.config["site_url"].rstrip("/") + "/" + page.path
+        return (PROJECT_DIR / page.path).as_uri()
+
     def view_page(self) -> None:
         page = self.selected_page()
         if page is None:
-            self.status.config(text="Choose a target page first.", fg=RED)
+            self._set_status("Choose a target page first.", RED)
             return
-        webbrowser.open(self.config["site_url"].rstrip("/") + "/" + page.path)
+        webbrowser.open(self.page_url(page, live=self.github_var.get()))
 
     def browse(self) -> None:
         start = PROJECT_DIR / "data"
         kinds = " ".join(f"*{s}" for s in sorted(SUPPORTED_TYPES))
         chosen = filedialog.askopenfilename(parent=self.root, title="Choose the source file",
                                             initialdir=str(start if start.exists() else PROJECT_DIR),
-                                            filetypes=[("Supported files", kinds), ("All files", "*.*")])
+                                            filetypes=[("Supported files", kinds)])
         if chosen:
             self.file_var.set(str(Path(chosen)))
 
@@ -396,41 +630,51 @@ class AddDataWindow:
         page = self.selected_page()
         file_text = self.file_var.get().strip().strip('"')
         text = self.text.get("1.0", "end").strip()
+        instructions = self.instructions.get("1.0", "end").strip()
+        publish = self.github_var.get()
         if page is None:
-            self.status.config(text="Choose a target page first.", fg=RED)
+            self._set_status("Choose a target page first.", RED)
             return
         if not file_text and not text:
-            self.status.config(text="Choose a source file or enter text.", fg=RED)
+            self._set_status("Choose a source file or enter text.", RED)
             return
         file = Path(file_text) if file_text else None
-        if file is not None and not file.is_file():
-            self.status.config(text=f"File not found: {file}", fg=RED)
-            return
-        log.info("User: PROCESS page=%s file=%s text=%d chars", page.path, file, len(text))
+        if file is not None:
+            if not file.is_file():
+                self._set_status(f"File not found: {file}", RED)
+                return
+            if file.suffix.lower() not in SUPPORTED_TYPES:
+                self._set_status(f"Unsupported file type '{file.suffix}'. Use: "
+                                 f"{', '.join(sorted(SUPPORTED_TYPES))}", RED)
+                return
+        log.info("User: PROCESS page=%s file=%s text=%d chars instructions=%d chars github=%s",
+                 page.path, file, len(text), len(instructions), publish)
         self._set_busy(True)
         self.started = time.monotonic()
-        self._tick()
-        threading.Thread(target=self._run_job, args=(page, file, text), daemon=True, name="add-data").start()
+        self._tick(publish)
+        threading.Thread(target=self._run_job, args=(page, file, text, instructions, publish),
+                         daemon=True, name="add-data").start()
 
-    def _tick(self) -> None:
+    def _tick(self, publish: bool) -> None:
         if self.started == 0.0:
             return
         elapsed = int(time.monotonic() - self.started)
-        self.status.config(text=f"Working... {elapsed // 60}:{elapsed % 60:02d}  Claude is placing the data, "
-                                "checking, and publishing (usually 1 to 5 minutes).", fg=BLUE)
-        self.root.after(1000, self._tick)
+        where = "checking, and publishing" if publish else "and checking (local only)"
+        self._set_status(f"Working... {elapsed // 60}:{elapsed % 60:02d}   Claude is placing the data {where}. "
+                         "This usually takes 1 to 5 minutes.", BLUE)
+        self.root.after(1000, self._tick, publish)
 
-    def _run_job(self, page: Page, file: Path | None, text: str) -> None:
+    def _run_job(self, page: Page, file: Path | None, text: str, instructions: str, publish: bool) -> None:
         try:
+            before = changed_files()
             material = prepare_material(page, file, text)
-            prompt = build_prompt(page, material)
-            args = claude_args(find_claude())
+            prompt = build_prompt(page, material, instructions, publish)
+            args = claude_args(find_claude(), publish)
             timeout = float(self.config.get("add_data_timeout_minutes", 20)) * 60
-            log.info("Add data: starting Claude for %s", page.path)
-            flags = subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
+            log.info("Add data: starting Claude for %s (publish=%s)", page.path, publish)
             self.process = subprocess.Popen(args, cwd=PROJECT_DIR, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                             stderr=subprocess.PIPE, text=True, encoding="utf-8", errors="replace",
-                                            creationflags=flags)
+                                            creationflags=_no_window())
             try:
                 out, err = self.process.communicate(prompt, timeout=timeout)
             except subprocess.TimeoutExpired:
@@ -444,11 +688,12 @@ class AddDataWindow:
                 log.info("Add data report:\n%s", out.strip())
             if code != 0:
                 raise RuntimeError((err or out or f"Claude exited with code {code}").strip())
-            self._post(self._done, page, out.strip() or "Done.", None)
+            changed = [] if publish else files_changed_since(before)
+            self._post(self._done, page, out.strip() or "Done.", publish, changed, None)
         except Exception as exc:  # noqa: BLE001 - reported to the user
             log.exception("Add data failed")
             self.process = None
-            self._post(self._done, page, "", exc)
+            self._post(self._done, page, "", publish, [], exc)
 
     def _post(self, *args: Any) -> None:
         """Run a callback on the window thread, unless the window was closed."""
@@ -457,21 +702,51 @@ class AddDataWindow:
         except (RuntimeError, tk.TclError):
             log.info("Add data: window closed before the job finished")
 
-    def _done(self, page: Page, report: str, error: Exception | None) -> None:
+    def _done(self, page: Page, report: str, publish: bool, changed: list[str], error: Exception | None) -> None:
         self.started = 0.0
         self._set_busy(False)
         if error:
-            self.status.config(text="Not added. See the message for details.", fg=RED)
-            messagebox.showerror("Add Data", f"{error}\n\nDetails are in logs\\app.log", parent=self.root)
+            self._set_status("Not added. See the message for details.", RED)
+            messagebox.showerror("KB Add Data", f"{error}\n\nDetails are in logs\\app.log", parent=self.root)
             return
-        self.status.config(text=f"Done: {page.name}. The live page updates in 1 to 2 minutes.", fg=GREEN)
         self.file_var.set("")
         self.text.delete("1.0", "end")
-        ResultWindow(self.root, page, report, self.config["site_url"])
+        self.instructions.delete("1.0", "end")
+        if publish:
+            self._set_status(f"Done: {page.name}. The live page updates in 1 to 2 minutes.")
+            ResultWindow(self.root, page, report, self.page_url(page, live=True))
+            return
+        self._set_status(f"Done: {page.name} updated locally (not on GitHub).")
+        result = ResultWindow(self.root, page, report, self.page_url(page, live=False))
+        if not changed:
+            return
+        listing = "\n".join(f"  {p}" for p in changed[:15]) + ("\n  ..." if len(changed) > 15 else "")
+        if messagebox.askyesno("KB Add Data", f"The page was updated locally only.\n\nChanged files:\n{listing}\n\n"
+                               "Update GitHub now?", parent=result.window):
+            self._set_busy(True)
+            self._set_status("Publishing to GitHub...", BLUE)
+            threading.Thread(target=self._run_publish, args=(page, changed), daemon=True, name="publish").start()
+
+    def _run_publish(self, page: Page, changed: list[str]) -> None:
+        try:
+            commit = publish_files(changed, f"KB ADD DATA: {page.name}")
+            log.info("Add data: published %s", commit)
+            self._post(self._published, page, None)
+        except Exception as exc:  # noqa: BLE001 - reported to the user
+            log.exception("Publishing failed")
+            self._post(self._published, page, exc)
+
+    def _published(self, page: Page, error: Exception | None) -> None:
+        self._set_busy(False)
+        if error:
+            self._set_status("Not published. See the message for details.", RED)
+            messagebox.showerror("KB Add Data", f"{error}\n\nDetails are in logs\\app.log", parent=self.root)
+        else:
+            self._set_status(f"Published: {page.name}. The live page updates in 1 to 2 minutes.")
 
     def exit(self) -> None:
         if self.process is not None:
-            if not messagebox.askyesno("Add Data", "A job is still running. Stop it and exit?", parent=self.root):
+            if not messagebox.askyesno("KB Add Data", "A job is still running. Stop it and exit?", parent=self.root):
                 return
             log.info("User: EXIT, stopping the running job")
             self.process.kill()
@@ -482,34 +757,35 @@ class AddDataWindow:
 class ResultWindow:
     """Shows Claude's report after a job."""
 
-    def __init__(self, parent: tk.Tk, page: Page, report: str, site_url: str) -> None:
-        win = tk.Toplevel(parent, bg="white")
-        win.title("knowledge_bank - result")
-        win.geometry(f"720x480+{parent.winfo_rootx() + 90}+{parent.winfo_rooty() + 80}")
+    def __init__(self, parent: tk.Tk, page: Page, report: str, url: str) -> None:
+        win = tk.Toplevel(parent, bg=WHITE)
+        self.window = win
+        win.title("KB Add Data - Result")
+        win.geometry(f"760x500+{parent.winfo_rootx() + 120}+{parent.winfo_rooty() + 80}")
         icon = PROJECT_DIR / "assets" / "knowledge_bank.ico"
         if icon.exists():
             win.iconbitmap(str(icon))
-        tk.Label(win, text=f"RESULT: {page.name.upper()}", font=("Arial Black", 14), bg="white").pack(pady=(18, 10))
-        frame = tk.Frame(win, bg="white", relief="solid", bd=1)
+        tk.Label(win, text=f"Result: {page.name}", font=("Segoe UI", 16, "bold"), bg=WHITE, fg=TEXT_COLOR,
+                 anchor="w").pack(fill="x", padx=24, pady=(18, 10))
+        frame = tk.Frame(win, bg=WHITE, relief="sunken", bd=1)
         frame.pack(fill="both", expand=True, padx=24)
-        text = tk.Text(frame, font=(FONT, 11), wrap="word", relief="flat", bd=6)
+        text = tk.Text(frame, font=TEXT_FONT, wrap="word", relief="flat", bd=6)
         scroll = tk.Scrollbar(frame, command=text.yview)
         text.configure(yscrollcommand=scroll.set)
         scroll.pack(side="right", fill="y")
         text.pack(side="left", fill="both", expand=True)
         text.insert("1.0", report)
-        text.config(state="disabled")
-        buttons = tk.Frame(win, bg="white")
+        text.configure(state="disabled")
+        buttons = tk.Frame(win, bg=WHITE)
         buttons.pack(pady=14)
-        url = site_url.rstrip("/") + "/" + page.path
         for label, command in (("VIEW PAGE", lambda: webbrowser.open(url)), ("CLOSE", win.destroy)):
-            tk.Button(buttons, text=label, command=command, font=(FONT, 10, "bold"), width=12, bg="white",
-                      fg="black", relief="solid", bd=1, cursor="hand2").pack(side="left", padx=8)
+            tk.Button(buttons, text=label, command=command, font=BUTTON_FONT, width=10, padx=15, pady=5,
+                      fg=TEXT_COLOR).pack(side="left", padx=8)
         win.bind("<Escape>", lambda _e: win.destroy())
 
 
 def run(config: dict[str, Any]) -> None:
-    """Open the ADD KB DATA window."""
+    """Open the KB ADD DATA window."""
     root = tk.Tk()
     AddDataWindow(root, config)
     root.mainloop()
