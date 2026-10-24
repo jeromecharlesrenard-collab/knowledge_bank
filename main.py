@@ -1,7 +1,8 @@
 """JCR Knowledge Bank - entry point.
 
 Sets up logging, loads config.json, and launches the local preview
-(hidden web server; add --window for the control window). Runs under pythonw.exe with no console.
+(hidden web server; add --window for the control window), or with --add-data
+the ADD KB DATA window (tools/add_data.py). Runs under pythonw.exe with no console.
 """
 
 from __future__ import annotations
@@ -35,6 +36,15 @@ def main() -> None:
             raise SystemExit(1)
 
     config = start(show_dialog=True)
+    if "--add-data" in sys.argv[1:]:
+        from tools.add_data import run as run_add_data
+
+        log.info("Startup: JCR Knowledge Bank add data")
+        try:
+            run_add_data(config)
+        finally:
+            log.info("Shutdown")
+        return
     log.info("Startup: JCR Knowledge Bank preview")
     try:
         run(config, window="--window" in sys.argv[1:])

@@ -21,6 +21,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "log_level": "INFO",
     "preview_port": 8000,
     "preview_idle_minutes": 60,
+    "add_data_timeout_minutes": 20,
     "site_url": "https://jeromecharlesrenard-collab.github.io/knowledge_bank/",
     "repo_url": "https://github.com/jeromecharlesrenard-collab/knowledge_bank",
     "default_source": "JCR research",
