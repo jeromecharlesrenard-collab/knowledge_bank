@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Permatution</title>
+<link rel="icon" type="image/png" href="../assets/knowledge_bank.png">
+<link rel="stylesheet" href="../assets/kb_style.css">
+<script src="../kb_config.js"></script>
+<script src="../assets/kb_common.js"></script>
+</head>
+<body>
+<a class="return-arrow" href="../index.html" title="Back to JCR Knowledge Bank" aria-label="Back to JCR Knowledge Bank"><img src="../assets/return_arrow.svg" alt=""></a>
+<div class="page">
+
+  <header>
+    <h1>Permatution</h1>
+    <p>How many ways people or cards can be arranged: factorial counts for lines, round tables, and rectangular tables.</p>
+  </header>
+
+  <p class="intro">A permutation is one specific order of a set of distinct items. Click a box to open it.</p>
+
+  <div class="rows">
+
+    <article class="card row-card title-box">
+      <div class="title-line"><h3>The Basic Rule</h3><span class="origin"><span class="label">Topics</span><span class="value">Line vs. circle</span></span></div>
+      <div class="more">
+        <dl class="tl-list">
+          <dt>Fixed line of seats</dt><dd>With <strong>n</strong> distinct seats (a bench, a row, a jury box), every seat is a fixed position, so there are <strong>n!</strong> (n factorial) possible arrangements. Two rows of fixed seats count the same way: it is still n! as long as each of the n seats is a distinct position.</dd>
+          <dt>Round table</dt><dd>At a round table there is no fixed starting seat. Rotating everyone around the table by one or more places turns one arrangement into another that looks identical, so each arrangement is counted <strong>n</strong> times in n!. Dividing it out leaves <strong>(n−1)!</strong> distinct arrangements.</dd>
+          <dt>Mirror images</dt><dd>If a clockwise order and its mirrored, counterclockwise order are also treated as the same arrangement, divide by 2 again: <strong>(n−1)!/2</strong> for a round table, <strong>n!/2</strong> for a line.</dd>
+        </dl>
+      </div>
+    </article>
+
+    <article class="card row-card title-box">
+      <div class="title-line"><h3>Six People Around a Table</h3><span class="origin"><span class="label">Topics</span><span class="value">Round vs. line, worked small example</span></span></div>
+      <div class="more">
+        <dl class="tl-list">
+          <dt>Round table</dt><dd><strong>(6−1)! = 5! = 5 × 4 × 3 × 2 × 1 = 120</strong> arrangements</dd>
+          <dt>Line of 6 seats</dt><dd><strong>6! = 6 × 5 × 4 × 3 × 2 × 1 = 720</strong> arrangements</dd>
+          <dt>Why the difference</dt><dd>The line has a fixed left end and right end, so every rotation is a new arrangement; the round table treats all 6 rotations of the same order as one, so 720 ÷ 6 = 120.</dd>
+        </dl>
+      </div>
+    </article>
+
+    <article class="card row-card title-box">
+      <div class="title-line"><h3>Twelve People: Jury, Bench, and Round Table</h3><span class="origin"><span class="label">Topics</span><span class="value">12! vs. 11!, mirror images</span></span></div>
+      <div class="more">
+        <dl class="tl-list">
+          <dt>12 jurors in 1 or 2 rows</dt><dd>Jury seats are fixed positions (it does not matter whether they sit in one row or split across two), so the count is <strong>12! = 479,001,600</strong>, about <strong>480 million</strong> arrangements.</dd>
+          <dt>12 people on a long bench</dt><dd>Same logic as the jury: a bench has a fixed left end and right end, so every seat is distinct. <strong>12! = 479,001,600</strong> arrangements.</dd>
+          <dt>12 people around a round table</dt><dd>No fixed starting seat, so rotations of the same order count once: <strong>(12−1)! = 11! = 39,916,800</strong>, about <strong>39 million</strong> arrangements — 12 times fewer than the bench, since each round-table arrangement corresponds to 12 rotated bench arrangements.</dd>
+          <dt>Round table, mirror images merged</dt><dd>If clockwise and counterclockwise seatings around the table are treated as identical, divide by 2 again: <strong>11!/2 = 19,958,400</strong> arrangements.</dd>
+        </dl>
+      </div>
+    </article>
+
+    <article class="card row-card title-box">
+      <div class="title-line"><h3>Twelve People Around a Rectangular Table</h3><span class="origin"><span class="label">Topics</span><span class="value">Six per side, partial symmetry</span></span></div>
+      <div class="more">
+        <dl class="tl-list">
+          <dt>Setup</dt><dd>12 people, six seats on each of the two long sides.</dd>
+          <dt>Seats treated as fixed (each chair distinct)</dt><dd><strong>12! = 479,001,600</strong> — the same count as the bench, since every chair is a distinct, nameable position.</dd>
+          <dt>Arrangements equal under rotation</dt><dd><strong>12!/2 = 239,500,800</strong>. A rectangle looks the same again only after a <strong>180° turn</strong> (unlike a round table, which looks the same after any of 12 rotations), so each arrangement is counted twice rather than 12 times.</dd>
+          <dt>Mirror images also treated as equal</dt><dd><strong>12!/4 = 119,750,400</strong>, which additionally accounts for flipping the table lengthwise or widthwise.</dd>
+          <dt>Standard answer</dt><dd><strong>12!/2 = 239,500,800</strong>. The rectangle's corners and distinct long/short sides break most of the circular symmetry a round table has, so the rectangle's count lands much closer to the bench's 12! than to the round table's 11!.</dd>
+        </dl>
+      </div>
+    </article>
+
+    <article class="card row-card title-box">
+      <div class="title-line"><h3>How Big Is a Permutation Number?</h3><span class="origin"><span class="label">Topics</span><span class="value">Deck of cards, atoms in the universe</span></span></div>
+      <div class="more">
+        <dl class="tl-list">
+          <dt>Standard deck of 52 cards</dt><dd>The number of possible orderings is <strong>52! ≈ 8.07 × 10⁶⁷</strong> (commonly rounded to about <strong>10⁶⁸</strong>).</dd>
+          <dt>Atoms in the observable universe</dt><dd>Generally estimated at <strong>10⁷⁸ to 10⁸²</strong> atoms.</dd>
+          <dt>Putting it together</dt><dd>52! is far larger than the 12-person seating counts above, yet still about <strong>10¹⁰ to 10¹⁴ times smaller</strong> than the estimated number of atoms in the observable universe. It is nonetheless so large that any thoroughly shuffled deck is almost certainly a specific order that has never existed before in the history of the universe.</dd>
+        </dl>
+      </div>
+    </article>
+
+  </div>
+
+  <p class="table-title">Summary of Counts</p>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Arrangement</th><th>Formula</th><th>Count</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>6 people, round table</td><td>(6−1)!</td><td>120</td></tr>
+        <tr><td>6 people, line</td><td>6!</td><td>720</td></tr>
+        <tr><td>12 jurors, 1 or 2 fixed rows</td><td>12!</td><td>479,001,600</td></tr>
+        <tr><td>12 people, long bench</td><td>12!</td><td>479,001,600</td></tr>
+        <tr><td>12 people, round table</td><td>(12−1)!</td><td>39,916,800</td></tr>
+        <tr><td>12 people, round table, mirror merged</td><td>(12−1)!/2</td><td>19,958,400</td></tr>
+        <tr><td>12 people, rectangular table (fixed seats)</td><td>12!</td><td>479,001,600</td></tr>
+        <tr><td>12 people, rectangular table (rotation)</td><td>12!/2</td><td>239,500,800</td></tr>
+        <tr><td>12 people, rectangular table (rotation + mirror)</td><td>12!/4</td><td>119,750,400</td></tr>
+        <tr><td>Standard deck of 52 cards</td><td>52!</td><td>~8.07 × 10⁶⁷</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <footer>
+    Source: JCR research. Created 2026-10-24.
+  </footer>
+
+</div>
+</body>
+</html>
