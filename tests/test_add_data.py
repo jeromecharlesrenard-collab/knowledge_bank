@@ -69,6 +69,19 @@ def test_image_is_copied_to_kb_images_with_page_prefix(mini_site: Path, tmp_path
     assert again.images[0].name == "alpha_model_s_2.jpg"
 
 
+def test_gif_is_copied_and_bmp_converted_to_png(mini_site: Path, tmp_path: Path) -> None:
+    from PIL import Image
+
+    gif, bmp = tmp_path / "Spin.gif", tmp_path / "Atom Diagram.bmp"
+    Image.new("RGB", (4, 4), "red").save(gif)
+    Image.new("RGB", (4, 4), "blue").save(bmp)
+    assert prepare_material(ALPHA, gif, "", root=mini_site).images[0].name == "alpha_spin.gif"
+    png = prepare_material(ALPHA, bmp, "", root=mini_site).images[0]
+    assert png.name == "alpha_atom_diagram.png"
+    with Image.open(png) as picture:
+        assert picture.format == "PNG"
+
+
 def test_docx_is_converted_and_pictures_extracted(mini_site: Path, tmp_path: Path) -> None:
     material = prepare_material(ALPHA, make_docx(tmp_path / "Notes.docx", with_picture=True), "", root=mini_site)
     assert (mini_site / "logs" / "add_data" / "notes.txt").read_text(encoding="utf-8").startswith("**Title**")

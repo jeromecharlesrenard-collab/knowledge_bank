@@ -2,7 +2,7 @@
 
 A maximized window (same style as the Chart Price Plot app) collects:
   - the target page (drop-down list of the pages on the home page)
-  - a source file (.docx, .pdf, .txt, .xlsx, .jpg, .png, .html), and/or pasted text
+  - a source file (.docx, .pdf, .txt, .xlsx, .jpg, .png, .gif, .bmp, .html), and/or pasted text
   - instructions (how or where to add the data, or edits to make), applied by Claude
   - "Update GitHub" (checked by default) and "Match GitHub" (unchecked by default)
 PROCESS prepares the material, then hands the work to Claude Code
@@ -17,7 +17,7 @@ the instructions, puts each piece of information in the right place on the page
     pushed, so GitHub matches the local knowledge bank exactly.
 
 Preparation done here, before Claude runs:
-  - images are copied into kb_images/ as <page>_<name>.<ext>
+  - images are copied into kb_images/ as <page>_<name>.<ext> (.bmp is converted to .png)
   - Word documents are converted to text (bold kept as **...**, tables as rows);
     their embedded pictures are copied into kb_images/ too
   - Excel workbooks are converted to text (one block per sheet, cells as rows)
@@ -70,7 +70,8 @@ TEXT_WIDTH = 0.8  # instruction and text boxes: 80% of the window width
 
 WORK_DIR_NAME = Path("logs") / "add_data"
 TEXT_TYPES = {".txt", ".html", ".htm"}
-IMAGE_TYPES = {".jpg", ".jpeg", ".png"}
+IMAGE_TYPES = {".jpg", ".jpeg", ".png", ".gif", ".bmp"}
+CONVERT_TO_PNG = {".bmp"}  # large, uncompressed: saved in kb_images as .png
 WORD_TYPES = {".docx"}
 EXCEL_TYPES = {".xlsx"}
 PDF_TYPES = {".pdf"}
@@ -257,8 +258,15 @@ def prepare_material(page: Page, file: Path | None, text: str, root: Path = PROJ
         if not file.is_file():
             raise FileNotFoundError(f"File not found: {file}")
         if suffix in IMAGE_TYPES:
-            target = image_target(root, page, file.name)
-            shutil.copy2(file, target)
+            if suffix in CONVERT_TO_PNG:
+                from PIL import Image
+
+                target = image_target(root, page, f"{file.stem}.png")
+                with Image.open(file) as picture:
+                    picture.save(target, "PNG", optimize=True)
+            else:
+                target = image_target(root, page, file.name)
+                shutil.copy2(file, target)
             material.images.append(target)
             material.lines.append(f"- Source image '{file.name}', already copied to "
                                   f"kb_images/{target.name} (link it as ../kb_images/{target.name}).")
