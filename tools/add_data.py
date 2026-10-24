@@ -303,20 +303,30 @@ def prepare_material(page: Page, file: Path | None, text: str, root: Path = PROJ
 
 
 def build_prompt(page: Page, material: Material, instructions: str = "", publish: bool = True,
-                 today: date | None = None) -> str:
-    """The instructions given to Claude for this job."""
+                 today: date | None = None, page_text: str | None = None) -> str:
+    """The instructions given to Claude for this job.
+
+    page_text: the page's current HTML, included so Claude does not have to read it first (faster).
+    """
     day = (today or date.today()).isoformat()
     images = (f"\n- {len(material.images)} image(s) were copied into kb_images/. Show each one where it belongs, "
               "in the page style, with alt text. If an image is not useful on the page, do not show it, and "
               "say so in your report." if material.images else "")
     if publish:
-        finish = ("Fix any problem they report. Then git add only the files you changed (including new kb_images\n"
+        finish = ("Fix any problem it reports. Then git add only the files you changed (including new kb_images\n"
                   "  files), git commit with a short message, and git push origin main.")
         report = "and whether it was published"
     else:
-        finish = ("Fix any problem they report. Do NOT git add, commit, or push: the user asked for a local\n"
+        finish = ("Fix any problem it reports. Do NOT git add, commit, or push: the user asked for a local\n"
                   "  update only (this overrides the CLAUDE.md publishing rule for this job).")
         report = "and that it was updated locally only (not published)"
+    if page_text is not None:
+        read_step = (f"- The current content of {page.path} is at the end of this message (CURRENT PAGE), so you do\n"
+                     "  not need to read it again. Study its sections, then read the material.")
+        current = f"\nCURRENT PAGE ({page.path}):\n<<<PAGE\n{page_text}\nPAGE>>>\n"
+    else:
+        read_step = f"- Read {page.path} and its sections first, then read the material."
+        current = ""
     user_rules = ("\nUSER INSTRUCTIONS for this job. Carry out every one of them while you do the work above; they\n"
                   "take priority over the defaults above (but not over the git rule just stated). In your report,\n"
                   "say for each instruction what you did, or why it could not be done:\n"
@@ -328,7 +338,7 @@ def build_prompt(page: Page, material: Material, instructions: str = "", publish
 TASK: {task}.
 
 How to do it:
-- Read {page.path} and its sections first, then read the material.
+{read_step}
 - Put each piece of information where it logically belongs: extend the matching box, row, table, or list,
   keeping the page's existing order (chronological, by size, etc.). If nothing fits, create a new section
   or box in the page's existing style (same classes, expand function, etc.).
@@ -339,15 +349,17 @@ How to do it:
 - Pages must not link to data/ or logs/.{images}
 - Update the footer date ("updated {day}"). If the page's scope changed, update its header description and
   the matching description on index.html.
-- Then run: .venv/Scripts/python.exe -m tools.site_check  and  .venv/Scripts/python.exe -m pytest -q
-  {finish}
+- Then run the site check: .venv/Scripts/python.exe -m tools.site_check
+  Run the tests (.venv/Scripts/python.exe -m pytest -q) ONLY if you changed a file outside html_pages/,
+  index.html, and kb_images/ (for example assets/kb_style.css or assets/kb_common.js); the tests cover the
+  site code, not page content. {finish}
 - If the material does not fit this page at all, or cannot be read, change nothing and explain why.
 {user_rules}
 Finish with a short plain-text report for the user (no tables): what was added and where, any corrections,
 {report}.
 
 MATERIAL:
-""" + "\n".join(material.lines) + "\n"
+""" + ("\n".join(material.lines) or "(none)") + "\n" + current
 
 
 def find_claude() -> str:
@@ -765,7 +777,8 @@ class AddDataWindow:
         try:
             before = changed_files()
             material = prepare_material(page, file, text, instructions=instructions)
-            prompt = build_prompt(page, material, instructions, publish)
+            page_text = (PROJECT_DIR / page.path).read_text(encoding="utf-8")
+            prompt = build_prompt(page, material, instructions, publish, page_text=page_text)
             args = claude_args(find_claude(), publish)
             timeout = float(self.config.get("add_data_timeout_minutes", 20)) * 60
             log.info("Add data: starting Claude for %s (publish=%s)", page.path, publish)

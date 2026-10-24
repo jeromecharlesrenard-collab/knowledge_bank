@@ -128,6 +128,16 @@ def test_text_only_goes_into_the_prompt(mini_site: Path) -> None:
     assert "git push origin main" in prompt
 
 
+def test_page_content_is_sent_and_tests_only_for_code_changes(mini_site: Path) -> None:
+    material = prepare_material(ALPHA, None, "x", root=mini_site)
+    page_text = (mini_site / ALPHA.path).read_text(encoding="utf-8")
+    prompt = build_prompt(ALPHA, material, page_text=page_text)
+    assert "CURRENT PAGE (html_pages/Alpha.html)" in prompt and page_text in prompt
+    assert "do\n  not need to read it again" in prompt
+    assert "Run the tests" in prompt and "ONLY if you changed a file outside html_pages/" in prompt
+    assert "CURRENT PAGE" not in build_prompt(ALPHA, material)  # without page_text, Claude reads the page
+
+
 def test_local_only_prompt_forbids_publishing(mini_site: Path) -> None:
     material = prepare_material(ALPHA, None, "x", root=mini_site)
     prompt = build_prompt(ALPHA, material, publish=False)
