@@ -17,7 +17,9 @@ from tools.add_data import (
     docx_to_text,
     files_changed_since,
     git,
+    github_state,
     list_pages,
+    match_github,
     prepare_material,
     safe_name,
     xlsx_to_text,
@@ -123,10 +125,26 @@ def test_local_only_prompt_forbids_publishing(mini_site: Path) -> None:
 def test_nothing_to_add_or_unsupported_type(mini_site: Path, tmp_path: Path) -> None:
     with pytest.raises(ValueError):
         prepare_material(ALPHA, None, "   ", root=mini_site)
-    bad = tmp_path / "notes.pdf"
+    bad = tmp_path / "notes.doc"
     bad.write_bytes(b"")
     with pytest.raises(ValueError):
         prepare_material(ALPHA, bad, "", root=mini_site)
+
+
+def test_pdf_is_copied_for_claude(mini_site: Path, tmp_path: Path) -> None:
+    pdf = tmp_path / "Report.pdf"
+    pdf.write_bytes(b"%PDF-1.4")
+    material = prepare_material(ALPHA, pdf, "", root=mini_site)
+    assert "Source PDF 'Report.pdf'" in material.lines[0]
+    assert (mini_site / "logs" / "add_data" / "Report.pdf").exists()
+
+
+def test_instructions_alone_are_a_job(mini_site: Path) -> None:
+    material = prepare_material(ALPHA, None, "", root=mini_site, instructions="Move Weather above Energy")
+    prompt = build_prompt(ALPHA, material, "Move Weather above Energy")
+    assert "apply the USER INSTRUCTIONS below" in prompt
+    assert "Carry out every one of them" in prompt
+    assert "Move Weather above Energy" in prompt
 
 
 def test_claude_tools_depend_on_update_github() -> None:
@@ -151,3 +169,62 @@ def test_only_files_changed_by_the_job_are_found(tmp_path: Path) -> None:
     (tmp_path / "kb_images").mkdir()
     (tmp_path / "kb_images" / "page_x.png").write_bytes(b"png")
     assert files_changed_since(before, tmp_path) == ["kb_images/page_x.png", "page.html"]
+
+
+
+
+def make_clone(tmp_path: Path, name: str, remote: Path) -> Path:
+    clone = tmp_path / name
+    git(["clone", "-q", str(remote), str(clone)], tmp_path)
+    for key, value in (("user.name", "t"), ("user.email", "t@t")):
+        git(["config", key, value], clone)
+    return clone
+
+
+@pytest.fixture
+def local_and_github(tmp_path: Path) -> tuple[Path, Path]:
+    """A bare repo standing in for GitHub, and a local clone with one commit on main."""
+    remote = tmp_path / "github.git"
+    git(["init", "-q", "--bare", "-b", "main", str(remote)], tmp_path)
+    local = make_clone(tmp_path, "local", remote)
+    git(["checkout", "-q", "-b", "main"], local)
+    (local / "page.html").write_text("v1", encoding="utf-8")
+    (local / "old.html").write_text("old", encoding="utf-8")
+    git(["add", "."], local)
+    git(["commit", "-q", "-m", "init"], local)
+    git(["push", "-q", "origin", "main"], local)
+    return local, remote
+
+
+def test_match_github_publishes_everything_local(local_and_github: tuple[Path, Path], tmp_path: Path) -> None:
+    local, remote = local_and_github
+    assert github_state(local).matching
+    assert match_github(local).startswith("Already matching")
+    # Local-only work: an edit, a new file, a deleted file, and an unpushed commit.
+    (local / "extra.txt").write_text("x", encoding="utf-8")
+    git(["add", "extra.txt"], local)
+    git(["commit", "-q", "-m", "unpushed"], local)
+    (local / "page.html").write_text("v2", encoding="utf-8")
+    (local / "kb_images").mkdir()
+    (local / "kb_images" / "new.png").write_bytes(b"png")
+    (local / "old.html").unlink()
+    state = github_state(local)
+    assert state.files == ["kb_images/new.png", "old.html", "page.html"] and len(state.unpushed) == 1
+    assert match_github(local).startswith("Matched")
+    assert github_state(local).matching
+    check = make_clone(tmp_path, "check", remote)  # GitHub now holds exactly the local files
+    assert (check / "page.html").read_text(encoding="utf-8") == "v2"
+    assert (check / "kb_images" / "new.png").exists() and not (check / "old.html").exists()
+
+
+def test_match_github_never_overwrites_newer_github(local_and_github: tuple[Path, Path], tmp_path: Path) -> None:
+    local, remote = local_and_github
+    other = make_clone(tmp_path, "other", remote)
+    (other / "page.html").write_text("from another computer", encoding="utf-8")
+    git(["commit", "-q", "-am", "newer on GitHub"], other)
+    git(["push", "-q", "origin", "main"], other)
+    (local / "page.html").write_text("local edit", encoding="utf-8")
+    assert github_state(local).behind == 1
+    with pytest.raises(RuntimeError, match="newer commit"):
+        match_github(local)
+    assert (local / "page.html").read_text(encoding="utf-8") == "local edit"  # nothing changed

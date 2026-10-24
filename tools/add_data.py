@@ -1,26 +1,29 @@
-"""KB ADD DATA: add a source file or pasted text to a knowledge page.
+"""KNOWLEDGE BANK ADD DATA: add a source file, text, or instructions to a knowledge page.
 
 A maximized window (same style as the Chart Price Plot app) collects:
   - the target page (drop-down list of the pages on the home page)
-  - a source file (.docx, .txt, .xlsx, .jpg, .png, .html), and/or pasted text
-  - optional instructions (how or where to add the data)
-  - "Update GitHub" (checked by default)
-PROCESS prepares the material, then hands the placement to Claude Code
-(`claude -p`, run in the project folder so CLAUDE.md applies). Claude puts each
-piece of information in the right place on the page, or in a new section in the
-page style, and runs the site check and tests.
+  - a source file (.docx, .pdf, .txt, .xlsx, .jpg, .png, .html), and/or pasted text
+  - instructions (how or where to add the data, or edits to make), applied by Claude
+  - "Update GitHub" (checked by default) and "Match GitHub" (unchecked by default)
+PROCESS prepares the material, then hands the work to Claude Code
+(`claude -p`, run in the project folder so CLAUDE.md applies). Claude carries out
+the instructions, puts each piece of information in the right place on the page
+(or in a new section in the page style), and runs the site check and tests.
   - Update GitHub checked: Claude also commits and pushes.
   - Unchecked: only the local files change; a pop-up then offers to publish.
     Publishing from the pop-up commits only the files this job changed.
+  - Match GitHub checked: no page work. Every local change not yet on GitHub
+    (edits, new and deleted files, unpushed commits) is checked, committed, and
+    pushed, so GitHub matches the local knowledge bank exactly.
 
 Preparation done here, before Claude runs:
   - images are copied into kb_images/ as <page>_<name>.<ext>
   - Word documents are converted to text (bold kept as **...**, tables as rows);
     their embedded pictures are copied into kb_images/ too
   - Excel workbooks are converted to text (one block per sheet, cells as rows)
-  - text and HTML files are copied into logs/add_data/ (git-ignored) for Claude to read
+  - PDF, text, and HTML files are copied into logs/add_data/ (git-ignored) for Claude to read
 
-Usage:  .venv\\Scripts\\pythonw.exe main.py --add-data   (or the KB ADD DATA shortcut)
+Usage:  .venv\\Scripts\\pythonw.exe main.py --add-data   (or the KNOWLEDGE BANK ADD shortcut)
 """
 
 from __future__ import annotations
@@ -70,7 +73,8 @@ TEXT_TYPES = {".txt", ".html", ".htm"}
 IMAGE_TYPES = {".jpg", ".jpeg", ".png"}
 WORD_TYPES = {".docx"}
 EXCEL_TYPES = {".xlsx"}
-SUPPORTED_TYPES = TEXT_TYPES | IMAGE_TYPES | WORD_TYPES | EXCEL_TYPES
+PDF_TYPES = {".pdf"}
+SUPPORTED_TYPES = TEXT_TYPES | IMAGE_TYPES | WORD_TYPES | EXCEL_TYPES | PDF_TYPES
 
 ENTRY_LINK = re.compile(r'<a href="(html_pages/[^"]+\.html)"[^>]*>\s*<span class="name">(.*?)</span>', re.S)
 W_NS = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
@@ -234,8 +238,12 @@ def xlsx_to_text(path: Path) -> str:
     return "\n\n".join(blocks)
 
 
-def prepare_material(page: Page, file: Path | None, text: str, root: Path = PROJECT_DIR) -> Material:
-    """Copy or convert the inputs and describe them for the prompt."""
+def prepare_material(page: Page, file: Path | None, text: str, root: Path = PROJECT_DIR,
+                     instructions: str = "") -> Material:
+    """Copy or convert the inputs and describe them for the prompt.
+
+    A job needs a source file, text, or instructions (instructions alone = edits to the page).
+    """
     material = Material()
     work = root / WORK_DIR_NAME
     if work.exists():
@@ -274,15 +282,15 @@ def prepare_material(page: Page, file: Path | None, text: str, root: Path = PROJ
         else:
             copied = work / file.name
             shutil.copy2(file, copied)
-            kind = "HTML file" if suffix in {".html", ".htm"} else "text file"
+            kind = "PDF" if suffix in PDF_TYPES else "HTML file" if suffix in {".html", ".htm"} else "text file"
             material.lines.append(f"- Source {kind} '{file.name}', copied to {copied.relative_to(root).as_posix()}.")
 
     if text.strip():
         material.lines.append("- Text typed or pasted by the user, between the markers:\n"
                               "<<<USER TEXT\n" + text.strip() + "\nUSER TEXT>>>")
 
-    if not material.lines:
-        raise ValueError("Nothing to add: choose a source file or enter text.")
+    if not material.lines and not instructions.strip():
+        raise ValueError("Nothing to do: choose a source file, enter text, or enter instructions.")
     return material
 
 
@@ -301,11 +309,15 @@ def build_prompt(page: Page, material: Material, instructions: str = "", publish
         finish = ("Fix any problem they report. Do NOT git add, commit, or push: the user asked for a local\n"
                   "  update only (this overrides the CLAUDE.md publishing rule for this job).")
         report = "and that it was updated locally only (not published)"
-    user_rules = (f"\nUSER INSTRUCTIONS for this job (follow them; they take priority over the defaults above):\n"
+    user_rules = ("\nUSER INSTRUCTIONS for this job. Carry out every one of them while you do the work above; they\n"
+                  "take priority over the defaults above (but not over the git rule just stated). In your report,\n"
+                  "say for each instruction what you did, or why it could not be done:\n"
                   f"<<<INSTRUCTIONS\n{instructions.strip()}\nINSTRUCTIONS>>>\n" if instructions.strip() else "")
+    task = (f'add the new material below to the page "{page.name}" ({page.path})' if material.lines else
+            f'apply the USER INSTRUCTIONS below to the page "{page.name}" ({page.path}); there is no new material')
     return f"""You are updating the JCR Knowledge Bank website in this folder. Follow CLAUDE.md exactly.
 
-TASK: add the new material below to the page "{page.name}" ({page.path}).
+TASK: {task}.
 
 How to do it:
 - Read {page.path} and its sections first, then read the material.
@@ -400,19 +412,75 @@ def publish_files(paths: list[str], message: str, root: Path = PROJECT_DIR) -> s
     return git(["log", "--oneline", "-1"], root).strip()
 
 
+@dataclass
+class SyncState:
+    """How the local knowledge bank differs from GitHub."""
+
+    files: list[str]  # local changes not committed yet (edited, new, or deleted files)
+    unpushed: list[str]  # local commits not on GitHub yet
+    behind: int  # GitHub commits not on this computer
+
+    @property
+    def matching(self) -> bool:
+        return not self.files and not self.unpushed and not self.behind
+
+
+def github_state(root: Path = PROJECT_DIR, branch: str = "main") -> SyncState:
+    """Compare the local knowledge bank with GitHub (fetches first)."""
+    git(["fetch", "-q", "origin", branch], root)
+    unpushed = [line for line in git(["log", "--oneline", f"origin/{branch}..HEAD"], root).splitlines() if line]
+    behind = int(git(["rev-list", "--count", f"HEAD..origin/{branch}"], root).strip() or 0)
+    return SyncState(sorted(changed_files(root)), unpushed, behind)
+
+
+def match_github(root: Path = PROJECT_DIR, branch: str = "main",
+                 message: str = "KB: match GitHub with the local knowledge bank") -> str:
+    """Make GitHub match the local knowledge bank exactly: commit every local change and push.
+
+    Refuses when GitHub has newer commits, so nothing on GitHub is ever overwritten.
+    Returns a one-line summary.
+    """
+    state = github_state(root, branch)
+    if state.behind:
+        raise RuntimeError(f"GitHub has {state.behind} newer commit(s) that are not on this computer. "
+                           "Nothing was changed. Get those changes first (git pull), then try again.")
+    if state.matching:
+        return "Already matching: GitHub has everything from the local knowledge bank."
+    if state.files:
+        git(["add", "-A"], root)
+        git(["commit", "-q", "-m", message], root)
+    git(["push", "origin", branch], root)
+    return "Matched: " + git(["log", "--oneline", "-1"], root).strip()
+
+
+def run_checks(root: Path = PROJECT_DIR) -> str:
+    """Run the site check and tests. Returns '' when all good, else a description of the problems."""
+    from tools.site_check import check_site
+
+    problems = [f"Site check: {issue}" for issue in check_site(root)]
+    python = root / ".venv" / "Scripts" / "python.exe"
+    tests = subprocess.run([str(python if python.exists() else sys.executable), "-m", "pytest", "-q"], cwd=root,
+                           capture_output=True, text=True, encoding="utf-8", errors="replace",
+                           creationflags=_no_window())
+    if tests.returncode != 0:
+        problems.append("Tests failed:\n" + "\n".join(tests.stdout.strip().splitlines()[-15:]))
+    return "\n".join(problems)
+
+
 # ---------- Window ----------
 
 class AddDataWindow:
-    """The KB ADD DATA window (Chart Price Plot style, maximized)."""
+    """The KNOWLEDGE BANK ADD DATA window (Chart Price Plot style, maximized)."""
 
     def __init__(self, root: tk.Tk, config: dict[str, Any]) -> None:
         self.root = root
         self.config = config
         self.process: subprocess.Popen[str] | None = None
         self.started = 0.0
+        self.busy = False
         self.pages: list[Page] = []
 
-        root.title("KB Add Data")
+        root.title("KNOWLEDGE BANK ADD DATA")
         root.configure(bg=WHITE)
         icon = PROJECT_DIR / "assets" / "knowledge_bank.ico"
         if icon.exists():
@@ -423,7 +491,8 @@ class AddDataWindow:
         self.page_var = tk.StringVar()
         self.file_var = tk.StringVar()
         self.github_var = tk.BooleanVar(value=True)
-        self.status_var = tk.StringVar(value="Choose a page, then a source file or text.")
+        self.match_var = tk.BooleanVar(value=False)
+        self.status_var = tk.StringVar(value="Choose a page, then a source file, text, or instructions.")
 
         self._build_layout()
         root.protocol("WM_DELETE_WINDOW", self.exit)
@@ -453,11 +522,11 @@ class AddDataWindow:
         block.columnconfigure(1, weight=1)
 
         row = 0
-        tk.Label(block, text="KB Add Data", bg=WHITE, fg=TEXT_COLOR, font=TITLE_FONT, anchor="w"
-                 ).grid(row=row, column=0, columnspan=3, sticky="w", pady=(0, 4))
+        tk.Label(block, text="KNOWLEDGE BANK ADD DATA", bg=WHITE, fg=TEXT_COLOR, font=TITLE_FONT
+                 ).grid(row=row, column=0, columnspan=3, pady=(0, 4))
         row += 1
-        tk.Label(block, text="Add a source file or text to a JCR Knowledge Bank page:", bg=WHITE, fg=GRAY,
-                 font=SUBTITLE_FONT, anchor="w").grid(row=row, column=0, columnspan=3, sticky="w", pady=(0, 10))
+        tk.Label(block, text="Add a source file, text, or instructions to a JCR Knowledge Bank page", bg=WHITE,
+                 fg=GRAY, font=SUBTITLE_FONT).grid(row=row, column=0, columnspan=3, pady=(0, 10))
         row += 1
 
         self._label(block, "Target page:", row)
@@ -474,13 +543,17 @@ class AddDataWindow:
         self.browse_btn.grid(row=row, column=2, sticky="w", pady=4)
         row += 1
 
-        self._label(block, "Instructions (optional):", row, columnspan=2, pady=(6, 2))
+        self._label(block, "Instructions:", row, columnspan=2, pady=(6, 2))
         self.github_check = tk.Checkbutton(block, text="Update GitHub", variable=self.github_var, bg=WHITE,
                                            fg=TEXT_COLOR, font=SMALL_FONT, anchor="w",
                                            activebackground=WHITE)
         self.github_check.grid(row=row, column=2, sticky="w", pady=(6, 2))
         row += 1
         self.instructions = self._text_box(block, row, height=5)
+        self.match_check = tk.Checkbutton(block, text="Match GitHub", variable=self.match_var, bg=WHITE,
+                                          fg=TEXT_COLOR, font=SMALL_FONT, anchor="w", activebackground=WHITE,
+                                          command=self._apply_mode)
+        self.match_check.grid(row=row, column=2, sticky="nw")
         row += 1
 
         self._label(block, "Text:", row, columnspan=2, pady=(6, 2))
@@ -588,11 +661,24 @@ class AddDataWindow:
         self.status.configure(fg=color)
 
     def _set_busy(self, busy: bool) -> None:
-        state = "disabled" if busy else "normal"
-        for widget in (self.process_btn, self.browse_btn, self.file_entry, self.view_btn, self.github_check,
+        self.busy = busy
+        self.process_btn.configure(state="disabled" if busy else "normal")
+        self.match_check.configure(state="disabled" if busy else "normal")
+        self._apply_mode()
+
+    def _apply_mode(self) -> None:
+        """Enable the page inputs, unless busy or Match GitHub is checked (no page work then)."""
+        matching = self.match_var.get()
+        state = "disabled" if self.busy or matching else "normal"
+        for widget in (self.browse_btn, self.file_entry, self.view_btn, self.github_check,
                        self.instructions, self.text):
             widget.configure(state=state)
-        self.page_box.configure(state="disabled" if busy else "readonly")
+        self.page_box.configure(state="disabled" if self.busy or matching else "readonly")
+        for box in (self.instructions, self.text):
+            box.configure(bg="#f0f0f0" if matching else WHITE)
+        if not self.busy:
+            self._set_status("Match GitHub: PROCESS publishes every local change not yet on GitHub."
+                             if matching else "Choose a page, then a source file, text, or instructions.")
 
     # ----- actions -----
 
@@ -627,6 +713,9 @@ class AddDataWindow:
             self.file_var.set(str(Path(chosen)))
 
     def process_data(self) -> None:
+        if self.match_var.get():
+            self.start_match()
+            return
         page = self.selected_page()
         file_text = self.file_var.get().strip().strip('"')
         text = self.text.get("1.0", "end").strip()
@@ -635,8 +724,8 @@ class AddDataWindow:
         if page is None:
             self._set_status("Choose a target page first.", RED)
             return
-        if not file_text and not text:
-            self._set_status("Choose a source file or enter text.", RED)
+        if not file_text and not text and not instructions:
+            self._set_status("Choose a source file, enter text, or enter instructions.", RED)
             return
         file = Path(file_text) if file_text else None
         if file is not None:
@@ -660,14 +749,14 @@ class AddDataWindow:
             return
         elapsed = int(time.monotonic() - self.started)
         where = "checking, and publishing" if publish else "and checking (local only)"
-        self._set_status(f"Working... {elapsed // 60}:{elapsed % 60:02d}   Claude is placing the data {where}. "
+        self._set_status(f"Working... {elapsed // 60}:{elapsed % 60:02d}   Claude is updating the page {where}. "
                          "This usually takes 1 to 5 minutes.", BLUE)
         self.root.after(1000, self._tick, publish)
 
     def _run_job(self, page: Page, file: Path | None, text: str, instructions: str, publish: bool) -> None:
         try:
             before = changed_files()
-            material = prepare_material(page, file, text)
+            material = prepare_material(page, file, text, instructions=instructions)
             prompt = build_prompt(page, material, instructions, publish)
             args = claude_args(find_claude(), publish)
             timeout = float(self.config.get("add_data_timeout_minutes", 20)) * 60
@@ -707,7 +796,7 @@ class AddDataWindow:
         self._set_busy(False)
         if error:
             self._set_status("Not added. See the message for details.", RED)
-            messagebox.showerror("KB Add Data", f"{error}\n\nDetails are in logs\\app.log", parent=self.root)
+            messagebox.showerror("Knowledge Bank Add Data", f"{error}\n\nDetails are in logs\\app.log", parent=self.root)
             return
         self.file_var.set("")
         self.text.delete("1.0", "end")
@@ -721,7 +810,7 @@ class AddDataWindow:
         if not changed:
             return
         listing = "\n".join(f"  {p}" for p in changed[:15]) + ("\n  ..." if len(changed) > 15 else "")
-        if messagebox.askyesno("KB Add Data", f"The page was updated locally only.\n\nChanged files:\n{listing}\n\n"
+        if messagebox.askyesno("Knowledge Bank Add Data", f"The page was updated locally only.\n\nChanged files:\n{listing}\n\n"
                                "Update GitHub now?", parent=result.window):
             self._set_busy(True)
             self._set_status("Publishing to GitHub...", BLUE)
@@ -729,7 +818,7 @@ class AddDataWindow:
 
     def _run_publish(self, page: Page, changed: list[str]) -> None:
         try:
-            commit = publish_files(changed, f"KB ADD DATA: {page.name}")
+            commit = publish_files(changed, f"KNOWLEDGE BANK ADD DATA: {page.name}")
             log.info("Add data: published %s", commit)
             self._post(self._published, page, None)
         except Exception as exc:  # noqa: BLE001 - reported to the user
@@ -740,13 +829,72 @@ class AddDataWindow:
         self._set_busy(False)
         if error:
             self._set_status("Not published. See the message for details.", RED)
-            messagebox.showerror("KB Add Data", f"{error}\n\nDetails are in logs\\app.log", parent=self.root)
+            messagebox.showerror("Knowledge Bank Add Data", f"{error}\n\nDetails are in logs\\app.log", parent=self.root)
         else:
             self._set_status(f"Published: {page.name}. The live page updates in 1 to 2 minutes.")
 
+    # ----- Match GitHub -----
+
+    def start_match(self) -> None:
+        log.info("User: PROCESS with Match GitHub")
+        self._set_busy(True)
+        self._set_status("Match GitHub: comparing the local knowledge bank with GitHub...", BLUE)
+        threading.Thread(target=self._match_scan, daemon=True, name="match-scan").start()
+
+    def _match_scan(self) -> None:
+        try:
+            self._post(self._match_confirm, github_state(), None)
+        except Exception as exc:  # noqa: BLE001 - reported to the user
+            log.exception("Match GitHub: compare failed")
+            self._post(self._match_confirm, None, exc)
+
+    def _match_confirm(self, state: SyncState | None, error: Exception | None) -> None:
+        if error or state is None:
+            self._match_finish(f"Could not compare with GitHub:\n{error}", ok=False)
+            return
+        if state.behind:
+            self._match_finish(f"GitHub has {state.behind} newer commit(s) that are not on this computer.\n"
+                               "Nothing was changed, so nothing on GitHub is overwritten.", ok=False)
+            return
+        if state.matching:
+            self._match_finish("Already matching: GitHub has everything from the local knowledge bank.", ok=True)
+            return
+        lines = [f"  {p}" for p in state.files[:20]] + (["  ..."] if len(state.files) > 20 else [])
+        parts = []
+        if state.files:
+            parts.append(f"{len(state.files)} local file change(s) not on GitHub:\n" + "\n".join(lines))
+        if state.unpushed:
+            parts.append(f"{len(state.unpushed)} local commit(s) not on GitHub:\n"
+                         + "\n".join(f"  {c}" for c in state.unpushed[:10]))
+        question = "\n\n".join(parts) + "\n\nRun the site check and tests, then publish all of this to GitHub?"
+        if not messagebox.askyesno("Match GitHub", question, parent=self.root):
+            self._match_finish("Match GitHub canceled. Nothing was changed.", ok=True, popup=False)
+            return
+        self._set_status("Match GitHub: checking the site and running tests, then publishing...", BLUE)
+        threading.Thread(target=self._match_run, daemon=True, name="match-run").start()
+
+    def _match_run(self) -> None:
+        try:
+            problems = run_checks()
+            if problems:
+                self._post(self._match_finish, "Not published. Fix these problems first:\n\n" + problems, False)
+                return
+            summary = match_github()
+            log.info("Match GitHub: %s", summary)
+            self._post(self._match_finish, summary + "\nThe live site updates in 1 to 2 minutes.", True)
+        except Exception as exc:  # noqa: BLE001 - reported to the user
+            log.exception("Match GitHub failed")
+            self._post(self._match_finish, f"Match GitHub failed:\n{exc}", False)
+
+    def _match_finish(self, message: str, ok: bool, popup: bool = True) -> None:
+        self._set_busy(False)
+        self._set_status(message.splitlines()[0], GREEN if ok else RED)
+        if popup:
+            (messagebox.showinfo if ok else messagebox.showerror)("Match GitHub", message, parent=self.root)
+
     def exit(self) -> None:
         if self.process is not None:
-            if not messagebox.askyesno("KB Add Data", "A job is still running. Stop it and exit?", parent=self.root):
+            if not messagebox.askyesno("Knowledge Bank Add Data", "A job is still running. Stop it and exit?", parent=self.root):
                 return
             log.info("User: EXIT, stopping the running job")
             self.process.kill()
@@ -760,7 +908,7 @@ class ResultWindow:
     def __init__(self, parent: tk.Tk, page: Page, report: str, url: str) -> None:
         win = tk.Toplevel(parent, bg=WHITE)
         self.window = win
-        win.title("KB Add Data - Result")
+        win.title("Knowledge Bank Add Data - Result")
         win.geometry(f"760x500+{parent.winfo_rootx() + 120}+{parent.winfo_rooty() + 80}")
         icon = PROJECT_DIR / "assets" / "knowledge_bank.ico"
         if icon.exists():
@@ -785,7 +933,7 @@ class ResultWindow:
 
 
 def run(config: dict[str, Any]) -> None:
-    """Open the KB ADD DATA window."""
+    """Open the KNOWLEDGE BANK ADD DATA window."""
     root = tk.Tk()
     AddDataWindow(root, config)
     root.mainloop()
