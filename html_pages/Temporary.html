@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Temporary</title>
+<link rel="icon" type="image/png" href="../assets/knowledge_bank.png">
+<link rel="stylesheet" href="../assets/kb_style.css">
+<script src="../kb_config.js"></script>
+<script src="../assets/kb_common.js"></script>
+</head>
+<body>
+<a class="return-arrow" href="../index.html" title="Back to JCR Knowledge Bank" aria-label="Back to JCR Knowledge Bank"><img src="../assets/return_arrow.svg" alt=""></a>
+<div class="page">
+
+  <header>
+    <h1>Temporary</h1>
+    <p>Two ways to make the Knowledge Bank work offline on an iPhone: Add to Home Screen (recommended) or an exported folder.</p>
+  </header>
+
+  <p class="intro">The Knowledge Bank is a static website (HTML, CSS, JavaScript, images) with relative links between pages. A copy of the published files works without internet in any app that can display a local web folder. Click a box to open it.</p>
+
+  <div class="rows">
+
+    <article class="card row-card title-box">
+      <div class="title-line"><h3>What the Knowledge Bank Is</h3><span class="origin"><span class="label">Type</span><span class="value">Static website</span></span></div>
+      <div class="more">
+        <dl class="tl-list">
+          <dt>Built from</dt><dd>Plain <strong>HTML, CSS, JavaScript, and images</strong>, with relative links between files &mdash; no database, no server-side code</dd>
+          <dt>Offline potential</dt><dd>A copy of the published files works <strong>without internet</strong> in any app that can display a local web folder</dd>
+          <dt>Ways to get there</dt><dd>Two options: <strong>Add to Home Screen</strong> in Safari (recommended), or an <strong>exported folder</strong> copied to the phone</dd>
+        </dl>
+      </div>
+    </article>
+
+    <article class="card row-card title-box">
+      <div class="title-line"><h3>Option 1: Add to Home Screen (Recommended)</h3><span class="origin"><span class="label">Needs</span><span class="value">Web app manifest + service worker</span></span></div>
+      <div class="more">
+        <dl class="tl-list">
+          <dt>Setup</dt><dd>Add two small files to the site: a <strong>web app manifest</strong> and an offline cache script (a <strong>service worker</strong>)</dd>
+          <dt>On the iPhone</dt>
+          <dd>
+            <ul class="steps">
+              <li>Open the live site once in <strong>Safari</strong>.</li>
+              <li>Choose <strong>Share &gt; Add to Home Screen</strong>.</li>
+              <li>A <strong>KB icon</strong> appears and opens the site full screen, like an app.</li>
+            </ul>
+          </dd>
+          <dt>Offline use</dt><dd>After the first visit, every page and image is stored on the phone and works offline, for example in <strong>airplane mode</strong></dd>
+          <dt>Updates</dt><dd><strong>Automatic</strong>: whenever the phone is online, it picks up whatever has been published</dd>
+          <dt>Trade-off</dt><dd>Relies on the public GitHub site for the first load and for updates &mdash; the site is already public, so nothing new is exposed</dd>
+        </dl>
+      </div>
+    </article>
+
+    <article class="card row-card title-box">
+      <div class="title-line"><h3>Option 2: Exported Folder</h3><span class="origin"><span class="label">Needs</span><span class="value">Export tool + third-party viewer app</span></span></div>
+      <div class="more">
+        <dl class="tl-list">
+          <dt>Setup</dt><dd>Add an export tool (for example a VS Code task or a button) that builds a clean folder, plus a <strong>.zip</strong>, with only what the site needs: <strong>index.html, html_pages/, kb_images/, assets/, kb_config.js</strong>; the private data/ folder, logs, tools, and tests are left out</dd>
+          <dt>Getting it to the phone</dt><dd>Copy it through <strong>OneDrive or iCloud Drive</strong>, then open index.html in a viewer app</dd>
+          <dt>Catch</dt><dd>The iPhone's built-in <strong>Files app and Safari</strong> don't browse a local multi-page website well &mdash; links between pages and the expand buttons usually fail there, so a <strong>third-party app</strong> that can open a folder of HTML files with its links and scripts (such as a code editor with a preview) would be needed; which current apps handle this properly should be confirmed before recommending one</dd>
+          <dt>Updates</dt><dd><strong>Manual</strong>: the folder has to be exported and copied again each time</dd>
+        </dl>
+      </div>
+    </article>
+
+    <article class="card row-card title-box">
+      <div class="title-line"><h3>Recommendation</h3><span class="origin"><span class="label">Choice</span><span class="value">Option 1</span></span></div>
+      <div class="more">
+        <dl class="tl-list">
+          <dt>Recommended</dt><dd><strong>Option 1 (Add to Home Screen)</strong>: needs no extra app and stays up to date automatically</dd>
+          <dt>Comparison</dt>
+          <dd>
+            <table class="mini-table">
+              <tbody>
+                <tr><td></td><td>Option 1: Home Screen</td><td>Option 2: Exported Folder</td></tr>
+                <tr><td>Extra app needed</td><td>No</td><td>Yes (viewer app)</td></tr>
+                <tr><td>Updates</td><td>Automatic</td><td>Manual</td></tr>
+                <tr><td>Works fully offline after setup</td><td>Yes</td><td>Yes, if the viewer app supports it</td></tr>
+              </tbody>
+            </table>
+          </dd>
+        </dl>
+      </div>
+    </article>
+
+  </div>
+
+  <footer>
+    Source: JCR research. Created 2026-10-25.
+  </footer>
+
+</div>
+</body>
+</html>
