@@ -489,38 +489,39 @@ footer {
 .home footer { text-align: center; }
 .letter {
   font-size: 22px;
-  margin: 32px 0 12px;
-  padding-bottom: 6px;
-  border-bottom: 1px solid #cccccc;
+  margin: 24px 0 8px;
 }
+/* One box per letter; each page is one row (name, description, "Added" date),
+   separated by a thin line. Columns line up across the rows of a box (subgrid). */
 .list {
   list-style: none;
   margin: 0;
   padding: 0;
   display: grid;
-  gap: 16px;
-}
-.entry a {
-  display: block;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   border: 1px solid #cccccc;
   border-left: 4px solid #000000;
   border-radius: 6px;
-  padding: 18px 22px;
+  overflow: hidden;
+  background: #ffffff;
+}
+.entry,
+.entry a {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: subgrid;
+}
+.entry + .entry { border-top: 1px solid #e0e0e0; }
+.entry a {
+  column-gap: 20px;
+  align-items: baseline;
+  padding: 10px 22px;
   color: #000000;
   text-decoration: none;
-  background: #ffffff;
   transition: background 0.15s ease;
 }
 .entry a:hover,
 .entry a:focus-visible { background: #f7f7f7; }
-/* Entry: name, description and "Added" date on one single line */
-.entry a {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  column-gap: 20px;
-  align-items: baseline;
-  padding: 12px 22px;
-}
 .entry .name {
   font-size: 19px;
   font-weight: bold;
@@ -550,6 +551,6 @@ footer {
   .tl-list dd { border-top: 0; padding-top: 0; }
   .tl-list dt { white-space: normal; }
   .intro-bar { flex-direction: column; }
-  .entry a { grid-template-columns: minmax(0, 1fr) auto; }
+  .list { grid-template-columns: minmax(0, 1fr) auto; }
   .entry .name { grid-column: 1 / -1; }
 }
