@@ -540,7 +540,8 @@ footer {
 
 /* ---------- Phone screens ---------- */
 @media (max-width: 760px) {
-  .page { padding: 32px 16px 48px; }
+  /* Start the content below the fixed return and top arrows (48 px icons, 18 pt from the top). */
+  .page { padding: 80px 16px 48px; }
   header h1 { font-size: 28px; }
   .grid { grid-template-columns: 1fr; }
   .stats { grid-template-columns: repeat(2, 1fr); }
