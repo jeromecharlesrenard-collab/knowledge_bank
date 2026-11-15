@@ -75,6 +75,60 @@ header p {
   font-size: 18px;
 }
 
+/* ---------- Site search (added by kb_common.js) ----------
+   Pages: right of the title (.header-row). Home page: centered under the subtitle. */
+.header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 32px;
+  margin-bottom: 8px;
+}
+.header-row h1 { margin: 0; }
+.header-row .kb-search { flex: 0 1 460px; }
+.home .kb-search { max-width: 460px; margin: 16px auto 0; text-align: left; }
+.kb-search { position: relative; }
+.kb-search input {
+  width: 100%;
+  border: 1px solid #000000;
+  border-radius: 18px;
+  padding: 7px 14px 7px 36px;
+  font: 15px Arial, Helvetica, sans-serif;
+  color: #000000;
+  background: #ffffff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.5' stroke-linecap='round'%3E%3Ccircle cx='10' cy='10' r='6.5'/%3E%3Cline x1='15' y1='15' x2='21' y2='21'/%3E%3C/svg%3E") no-repeat 12px center / 16px;
+}
+.kb-search input:focus { outline: none; box-shadow: 0 0 0 2px #000000; }
+.kb-results {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  width: min(620px, calc(100vw - 32px));
+  max-height: 65vh;
+  overflow-y: auto;
+  z-index: 200;
+  background: #ffffff;
+  border: 1px solid #cccccc;
+  border-radius: 6px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+  font-size: 14px;
+}
+.home .kb-results { left: 50%; right: auto; transform: translateX(-50%); }
+.kb-results[hidden] { display: none; }
+.kb-note { margin: 0; padding: 8px 14px; font-size: 13px; color: #444444; }
+.kb-result {
+  display: block;
+  padding: 8px 14px;
+  border-top: 1px solid #eeeeee;
+  color: #000000;
+  text-decoration: none;
+}
+.kb-result:hover,
+.kb-result:focus-visible { background: #f5f5f5; }
+.kb-where { display: block; margin-bottom: 2px; }
+.kb-snip { display: block; color: #333333; line-height: 1.4; }
+.kb-results mark,
+mark.kb-hit { background: #ffe066; color: #000000; padding: 0 1px; border-radius: 2px; }
+
 /* ---------- Headings and text ---------- */
 h2 {
   font-size: 24px;
@@ -542,6 +596,8 @@ footer {
 @media (max-width: 760px) {
   /* Start the content below the fixed return and top arrows (48 px icons, 18 pt from the top). */
   .page { padding: 80px 16px 48px; }
+  .header-row { flex-direction: column; align-items: stretch; }
+  .header-row .kb-search { flex: none; }
   header h1 { font-size: 28px; }
   .grid { grid-template-columns: 1fr; }
   .stats { grid-template-columns: repeat(2, 1fr); }
