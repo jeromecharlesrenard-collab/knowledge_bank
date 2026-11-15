@@ -163,8 +163,8 @@ document.addEventListener('DOMContentLoaded', function () {
 })();
 
 // Recap: a box holding <div class="recap" hidden>...</div> gets a round "R" button next to its
-// title. The button opens the recap in a window (3/4 of the page width); clicking anywhere or Esc
-// closes it.
+// title; a recap placed right after a section heading (<h2>) puts the button next to that heading.
+// The button opens the recap in a window (3/4 of the page width); clicking anywhere or Esc closes it.
 document.addEventListener('DOMContentLoaded', function () {
   function openRecap(h3, recap) {
     var overlay = document.createElement('div');
@@ -190,9 +190,11 @@ document.addEventListener('DOMContentLoaded', function () {
     document.addEventListener('keydown', onKey);
   }
 
-  var recaps = document.querySelectorAll('.card .recap');
+  var recaps = document.querySelectorAll('.recap');
   Array.prototype.forEach.call(recaps, function (recap) {
-    var h3 = recap.closest('.card').querySelector('h3');
+    var card = recap.closest('.card');
+    var prev = recap.previousElementSibling;
+    var h3 = card ? card.querySelector('h3') : (prev && /^H[23]$/.test(prev.tagName) ? prev : null);
     if (!h3 || h3.querySelector('.recap-btn')) { return; }
     var btn = document.createElement('button');
     btn.type = 'button';
@@ -259,6 +261,14 @@ var KB_SEARCH = (function () {
 
   function clean(text) { return (text || '').replace(/\s+/g, ' ').trim(); }
 
+  // Text of an element, leaving out the parts matching selector (e.g. its hidden recap).
+  function textWithout(el, selector) {
+    if (!el.querySelector(selector)) { return el.textContent; }
+    var copy = el.cloneNode(true);
+    Array.prototype.forEach.call(copy.querySelectorAll(selector), function (n) { n.remove(); });
+    return copy.textContent;
+  }
+
   // Searchable blocks of a page, in page order: each box (article.card) is one block; text
   // outside boxes (paragraphs, list items, table rows) is one block per element.
   function blocksOf(root) {
@@ -267,7 +277,7 @@ var KB_SEARCH = (function () {
     var els = root.querySelectorAll('h2, article.card, p, li, tr, figure, dt');
     for (var i = 0; i < els.length; i++) {
       var el = els[i];
-      if (el.closest('header, footer, nav, .kb-search, .recap-overlay')) { continue; }
+      if (el.closest('header, footer, nav, .kb-search, .recap, .recap-overlay')) { continue; }
       if (el.tagName === 'H2') {
         // A section heading is its own block, so searching a section name finds the section.
         section = clean(el.textContent);
@@ -280,7 +290,7 @@ var KB_SEARCH = (function () {
         var h3 = el.querySelector('h3');
         if (h3) { title = (section ? section + ' › ' : '') + clean(h3.textContent); }
       }
-      var text = clean(el.textContent);
+      var text = clean(textWithout(el, '.recap'));
       if (text) { blocks.push({ title: title, text: text, el: el }); }
     }
     return blocks;

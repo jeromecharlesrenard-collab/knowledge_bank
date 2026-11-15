@@ -399,7 +399,8 @@ table.mini-table { width: auto; font-size: 15px; }
 }
 
 /* ---------- Recap (added by kb_common.js): round "R" next to a box title opens a window ----------
-   Markup: <div class="recap" hidden>...</div> inside the box (usually a <table class="recap-table">). */
+   Markup: <div class="recap" hidden>...</div> inside the box, or right after a section <h2>
+   (a <table class="recap-table">: Item | Remember; memory aids in <em>). */
 .recap { display: none; }
 .recap-btn {
   display: inline-flex;
@@ -446,7 +447,8 @@ table.mini-table { width: auto; font-size: 15px; }
 .recap-table th,
 .recap-table td { white-space: normal; vertical-align: top; padding: 9px 12px; }
 .recap-table td:first-child { white-space: nowrap; }
-.recap-table td:last-child { color: #333333; font-style: italic; }
+.recap-table td:first-child { width: 1%; }
+.recap-table em { color: #444444; }
 
 /* ---------- Section navigation, cross-links ---------- */
 html { scroll-behavior: smooth; }
