@@ -18,5 +18,9 @@ window.KB_CONFIG = {
   topArrowTopMargin: 18,
 
   // Top Arrow Right Margin: distance from the right of the window, in pts
-  topArrowRightMargin: 18
+  topArrowRightMargin: 18,
+
+  // Search box: placeholder text, and the local preview shortcut named when search is opened as a file
+  searchPlaceholder: "Search the knowledge bank",
+  localPreviewName: "KNOWLEDGE BANK L"
 };

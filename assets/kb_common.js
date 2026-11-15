@@ -193,10 +193,11 @@ document.addEventListener('DOMContentLoaded', function () {
 // Site search: a box on every page (right of the title; under the subtitle on the home page).
 // The pages listed on the home page are read on first use, so the search is always up to date
 // with no index file to rebuild. Needs http(s): the live site or the local preview.
+// Searched: page titles and descriptions, section headings, and every box and paragraph.
 // A result opens its page with ?q=<words>&b=<block>: the words are highlighted, the box holding
-// them is expanded, and the page scrolls to it.
+// them is expanded, and the page scrolls to it (b=top: a title match, the page opens at the top).
 var KB_SEARCH = (function () {
-  var CACHE_KEY = 'kb-search-v1';
+  var CACHE_KEY = 'kb-search-v2';
   var CACHE_MINUTES = 10;
   var MAX_RESULTS = 40;
   var site = null; // promise of [{name, href, blocks: [{title, text}]}]
@@ -222,7 +223,12 @@ var KB_SEARCH = (function () {
     for (var i = 0; i < els.length; i++) {
       var el = els[i];
       if (el.closest('header, footer, nav, .kb-search')) { continue; }
-      if (el.tagName === 'H2') { section = clean(el.textContent); continue; }
+      if (el.tagName === 'H2') {
+        // A section heading is its own block, so searching a section name finds the section.
+        section = clean(el.textContent);
+        if (section) { blocks.push({ title: section, text: section, el: el }); }
+        continue;
+      }
       if (el.tagName !== 'ARTICLE' && el.closest('article.card')) { continue; }
       var title = section;
       if (el.tagName === 'ARTICLE') {
@@ -260,8 +266,11 @@ var KB_SEARCH = (function () {
           var blocks = blocksOf(doc.querySelector('.page') || doc.body).map(function (b) {
             return { title: b.title, text: b.text };
           });
-          return { name: name, href: href, blocks: blocks };
-        }).catch(function () { return { name: name, href: href, blocks: [] }; });
+          // Page title and description: searching a page's name finds the page itself.
+          var desc = doc.querySelector('.page > header p');
+          var intro = name + (desc ? ': ' + clean(desc.textContent) : '');
+          return { name: name, href: href, intro: intro, blocks: blocks };
+        }).catch(function () { return { name: name, href: href, intro: name, blocks: [] }; });
       }));
     }).then(function (pages) {
       try { sessionStorage.setItem(CACHE_KEY, JSON.stringify({ time: Date.now(), pages: pages })); } catch (e) { /* full */ }
@@ -281,6 +290,11 @@ var KB_SEARCH = (function () {
       var results = [];
       if (!terms.length) { return results; }
       pages.forEach(function (page) {
+        var intro = fold(page.intro || page.name);
+        if (terms.every(function (t) { return intro.indexOf(t) >= 0; })) {
+          results.push({ page: page, block: { title: '', text: page.intro || page.name }, index: -1,
+                         at: intro.indexOf(terms[0]) });
+        }
         page.blocks.forEach(function (block, index) {
           var folded = fold(block.text);
           for (var t = 0; t < terms.length; t++) {
@@ -330,7 +344,8 @@ var KB_SEARCH = (function () {
   }
 
   function resultUrl(r, query) {
-    return KB_ROOT + r.page.href + '?q=' + encodeURIComponent(query) + '&b=' + r.index;
+    // b=top: the page itself matched (title or description), so it opens at the top.
+    return KB_ROOT + r.page.href + '?q=' + encodeURIComponent(query) + '&b=' + (r.index < 0 ? 'top' : r.index);
   }
 
   // ----- search box -----
@@ -341,7 +356,9 @@ var KB_SEARCH = (function () {
     var box = document.createElement('div');
     box.className = 'kb-search';
     box.setAttribute('role', 'search');
-    box.innerHTML = '<input type="search" placeholder="Search the knowledge bank" aria-label="Search the knowledge bank" ' +
+    var cfg = window.KB_CONFIG || {};
+    var placeholder = escapeHtml(cfg.searchPlaceholder || 'Search this site');
+    box.innerHTML = '<input type="search" placeholder="' + placeholder + '" aria-label="' + placeholder + '" ' +
       'autocomplete="off" spellcheck="false"><div class="kb-results" hidden></div>';
     var h1 = header.querySelector('h1');
     if (document.body.classList.contains('home') || !h1) {
@@ -378,8 +395,8 @@ var KB_SEARCH = (function () {
         });
         show(html);
       }, function () {
-        show('<p class="kb-note">Search needs the website: open it online or with the local preview ' +
-             '(KNOWLEDGE BANK L), not as a file.</p>');
+        show('<p class="kb-note">Search needs the website: open it online or with the local preview' +
+             (cfg.localPreviewName ? ' (' + escapeHtml(cfg.localPreviewName) + ')' : '') + ', not as a file.</p>');
       });
     }
 
@@ -437,6 +454,7 @@ var KB_SEARCH = (function () {
       }
     });
     // Scroll to the result that was clicked (block b), else to the first match.
+    if (params.get('b') === 'top') { return; }
     var target = null, b = parseInt(params.get('b'), 10);
     if (!isNaN(b)) {
       var block = blocksOf(root)[b];
