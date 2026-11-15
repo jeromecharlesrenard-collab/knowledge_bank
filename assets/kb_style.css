@@ -398,6 +398,56 @@ table.mini-table { width: auto; font-size: 15px; }
   transform: translateX(-50%);
 }
 
+/* ---------- Recap (added by kb_common.js): round "R" next to a box title opens a window ----------
+   Markup: <div class="recap" hidden>...</div> inside the box (usually a <table class="recap-table">). */
+.recap { display: none; }
+.recap-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  margin-left: 10px;
+  padding: 0;
+  border: 1.5px solid #000000;
+  border-radius: 50%;
+  background: #ffffff;
+  color: #000000;
+  font: bold 12px Arial, Helvetica, sans-serif;
+  vertical-align: 2px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.recap-btn::before { content: "R"; }
+.recap-btn:hover,
+.recap-btn:focus-visible { background: #000000; color: #ffffff; }
+.recap-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.45);
+  cursor: pointer;
+}
+.recap-window {
+  width: 75vw;
+  max-height: 88vh;
+  overflow-y: auto;
+  padding: 24px 32px;
+  background: #ffffff;
+  border-radius: 10px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+}
+.recap-title { margin: 0 0 14px; font-size: 22px; font-weight: bold; }
+.recap-hint { margin: 14px 0 0; font-size: 13px; color: #666666; text-align: right; }
+.recap-table th,
+.recap-table td { white-space: normal; vertical-align: top; padding: 9px 12px; }
+.recap-table td:first-child { white-space: nowrap; }
+.recap-table td:last-child { color: #333333; font-style: italic; }
+
 /* ---------- Section navigation, cross-links ---------- */
 html { scroll-behavior: smooth; }
 h2[id] { scroll-margin-top: 20px; }
@@ -594,6 +644,8 @@ footer {
 
 /* ---------- Phone screens ---------- */
 @media (max-width: 760px) {
+  .recap-window { width: 94vw; padding: 18px; }
+  .recap-table td:first-child { white-space: normal; }
   /* Start the content below the fixed return and top arrows (48 px icons, 18 pt from the top). */
   .page { padding: 80px 16px 48px; }
   .header-row { flex-direction: column; align-items: stretch; }

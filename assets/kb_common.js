@@ -162,6 +162,51 @@ document.addEventListener('DOMContentLoaded', function () {
   });
 })();
 
+// Recap: a box holding <div class="recap" hidden>...</div> gets a round "R" button next to its
+// title. The button opens the recap in a window (3/4 of the page width); clicking anywhere or Esc
+// closes it.
+document.addEventListener('DOMContentLoaded', function () {
+  function openRecap(h3, recap) {
+    var overlay = document.createElement('div');
+    overlay.className = 'recap-overlay';
+    var win = document.createElement('div');
+    win.className = 'recap-window';
+    win.setAttribute('role', 'dialog');
+    win.setAttribute('aria-modal', 'true');
+    win.innerHTML = '<p class="recap-title"></p>' + recap.innerHTML +
+      '<p class="recap-hint">Click anywhere to close</p>';
+    win.querySelector('.recap-title').textContent = 'Recap: ' + h3.textContent.trim();
+    overlay.appendChild(win);
+    document.body.appendChild(overlay);
+    var overflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    function close() {
+      overlay.remove();
+      document.body.style.overflow = overflow;
+      document.removeEventListener('keydown', onKey);
+    }
+    function onKey(e) { if (e.key === 'Escape') { close(); } }
+    overlay.addEventListener('click', close);
+    document.addEventListener('keydown', onKey);
+  }
+
+  var recaps = document.querySelectorAll('.card .recap');
+  Array.prototype.forEach.call(recaps, function (recap) {
+    var h3 = recap.closest('.card').querySelector('h3');
+    if (!h3 || h3.querySelector('.recap-btn')) { return; }
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'recap-btn';
+    btn.title = 'Recap: the key facts to remember';
+    btn.setAttribute('aria-label', 'Recap');
+    btn.addEventListener('click', function (e) {
+      e.stopPropagation(); // do not open or close the box itself
+      openRecap(h3, recap);
+    });
+    h3.appendChild(btn);
+  });
+});
+
 // Home page: sort index entries alphabetically and group them under letter headings.
 document.addEventListener('DOMContentLoaded', function () {
   var source = document.getElementById('entries');
@@ -222,7 +267,7 @@ var KB_SEARCH = (function () {
     var els = root.querySelectorAll('h2, article.card, p, li, tr, figure, dt');
     for (var i = 0; i < els.length; i++) {
       var el = els[i];
-      if (el.closest('header, footer, nav, .kb-search')) { continue; }
+      if (el.closest('header, footer, nav, .kb-search, .recap-overlay')) { continue; }
       if (el.tagName === 'H2') {
         // A section heading is its own block, so searching a section name finds the section.
         section = clean(el.textContent);
@@ -422,7 +467,7 @@ var KB_SEARCH = (function () {
     var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
       acceptNode: function (node) {
         var p = node.parentNode;
-        if (!node.nodeValue.trim() || p.closest('script, style, header, .kb-search, mark')) { return NodeFilter.FILTER_REJECT; }
+        if (!node.nodeValue.trim() || p.closest('script, style, header, .kb-search, mark, .recap, .recap-overlay')) { return NodeFilter.FILTER_REJECT; }
         return NodeFilter.FILTER_ACCEPT;
       }
     });
