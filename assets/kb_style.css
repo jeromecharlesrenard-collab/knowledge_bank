@@ -345,7 +345,7 @@ h2 {
 /* Small inline table inside a box (e.g. a °C / °F quick reference) */
 table.mini-table { width: auto; font-size: 15px; }
 .mini-table td {
-  padding: 3px 14px;
+  padding: 3px 11px;
   border-bottom: 1px solid #e0e0e0;
   text-align: center;
 }
