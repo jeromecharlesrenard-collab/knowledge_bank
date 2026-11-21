@@ -2,7 +2,9 @@
 
 A maximized window (same style as the Chart Price Plot app) collects:
   - the target page (drop-down list of the pages on the home page)
-  - a source file (.docx, .pdf, .txt, .xlsx, .jpg, .png, .gif, .bmp, .html), and/or pasted text
+  - a source file (.docx, .pdf, .txt, .xlsx, .jpg, .png, .gif, .bmp, .html), and/or pasted text.
+    The file can be browsed, dropped on the window (drag and drop, needs tkinterdnd2), or,
+    for an image, pasted with Ctrl+V (a copied image or screenshot; saved in logs/add_data_paste/)
   - instructions (how or where to add the data, or edits to make), applied by Claude
   - "Update GitHub" (checked by default) and "Match GitHub" (unchecked by default)
 PROCESS prepares the material, then hands the work to Claude Code
@@ -42,7 +44,7 @@ import webbrowser
 import xml.etree.ElementTree as ET
 import zipfile
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 from tkinter import filedialog, messagebox
 from tkinter import font as tkfont
@@ -69,6 +71,10 @@ RED = "#b3261e"
 TEXT_WIDTH = 0.8  # instruction and text boxes: 80% of the window width
 
 WORK_DIR_NAME = Path("logs") / "add_data"
+PASTE_DIR_NAME = Path("logs") / "add_data_paste"  # images pasted with Ctrl+V (git-ignored)
+DROP_BG = "#f4f7fb"
+DROP_BORDER = "#9aa9bf"
+PREVIEW_SIZE = (260, 110)  # thumbnail of the chosen image, in pixels
 TEXT_TYPES = {".txt", ".html", ".htm"}
 IMAGE_TYPES = {".jpg", ".jpeg", ".png", ".gif", ".bmp"}
 CONVERT_TO_PNG = {".bmp"}  # large, uncompressed: saved in kb_images as .png
@@ -173,6 +179,30 @@ def image_target(root: Path, page: Page, source_name: str) -> Path:
     folder = root / "kb_images"
     folder.mkdir(exist_ok=True)
     return unique_path(folder, filename)
+
+
+def first_supported(paths: list[str]) -> Path | None:
+    """First existing file of a supported type among dropped or copied paths (None if none)."""
+    for item in paths:
+        path = Path(str(item).strip().strip('"'))
+        if path.suffix.lower() in SUPPORTED_TYPES and path.is_file():
+            return path
+    return None
+
+
+def save_pasted_image(image: Any, folder: Path, now: datetime | None = None) -> Path:
+    """Save a clipboard image (PIL Image) as folder/pasted_image_<date>_<time>.png.
+
+    Earlier pasted images are removed: the window uses one source file at a time.
+    """
+    folder.mkdir(parents=True, exist_ok=True)
+    for old in folder.glob("pasted_image_*.png"):
+        old.unlink(missing_ok=True)
+    target = folder / f"pasted_image_{(now or datetime.now()).strftime('%Y%m%d_%H%M%S')}.png"
+    if image.mode not in ("RGB", "RGBA", "L", "P"):
+        image = image.convert("RGBA")
+    image.save(target, "PNG", optimize=True)
+    return target
 
 
 def _paragraph_text(paragraph: ET.Element) -> str:
@@ -630,6 +660,20 @@ class AddDataWindow:
         self.browse_btn.grid(row=row, column=2, sticky="w", pady=4)
         row += 1
 
+        # Drop zone: drop a file here (or anywhere on the window), or paste a copied image with Ctrl+V.
+        self.drop_zone = tk.Frame(block, bg=DROP_BG, highlightthickness=1, highlightbackground=DROP_BORDER)
+        self.drop_zone.grid(row=row, column=1, sticky="ew", padx=(12, 8), pady=4)
+        self.drop_hint = tk.Label(self.drop_zone, text=self._drop_hint_text(), bg=DROP_BG, fg=GRAY,
+                                  font=SMALL_FONT, justify="left", anchor="w")
+        self.drop_hint.pack(side="left", fill="x", expand=True, padx=10, pady=10)
+        self.preview = tk.Label(self.drop_zone, bg=DROP_BG)
+        self.preview.pack(side="right", padx=8, pady=6)
+        self.preview_image: Any = None  # keeps the thumbnail alive
+        self.paste_btn = tk.Button(block, text="Paste image", font=SMALL_FONT, command=self.paste_button)
+        self.paste_btn.grid(row=row, column=2, sticky="w", pady=4)
+        self.file_var.trace_add("write", lambda *_a: self._update_preview())
+        row += 1
+
         self._label(block, "Instructions:", row, columnspan=2, pady=(6, 2))
         self.github_check = tk.Checkbutton(block, text="Update GitHub", variable=self.github_var, bg=WHITE,
                                            fg=TEXT_COLOR, font=SMALL_FONT, anchor="w",
@@ -684,6 +728,120 @@ class AddDataWindow:
         self.root.bind_all("<MouseWheel>", self._on_mouse_wheel)
         self.root.bind_all("<Control-MouseWheel>", self._on_ctrl_mouse_wheel)
         self._install_zoom_fonts(block)
+        self._install_drop_and_paste()
+
+    # ----- drop and paste -----
+
+    def _drop_hint_text(self) -> str:
+        if hasattr(self.root, "drop_target_register"):
+            return "Drop a file or image here (or anywhere on this window), or copy an image and press Ctrl+V."
+        return "Copy an image and press Ctrl+V to paste it (drag and drop needs the tkinterdnd2 package)."
+
+    def _install_drop_and_paste(self) -> None:
+        """Drag and drop of files (when tkinterdnd2 is installed) and Ctrl+V for copied images."""
+        if hasattr(self.root, "drop_target_register"):
+            from tkinterdnd2 import DND_FILES
+
+            def register(widget: tk.Misc) -> None:  # every widget, so a drop anywhere on the window works
+                try:
+                    widget.drop_target_register(DND_FILES)  # type: ignore[attr-defined]
+                    widget.dnd_bind("<<Drop>>", self._on_drop)  # type: ignore[attr-defined]
+                except (AttributeError, tk.TclError):
+                    pass
+                for child in widget.winfo_children():
+                    register(child)
+
+            register(self.root)
+        for box in (self.instructions, self.text, self.file_entry, self.new_title_entry):
+            box.bind("<<Paste>>", self._paste_in_box)
+        self.root.bind("<Control-v>", self._paste_anywhere)
+        self.root.bind("<Control-V>", self._paste_anywhere)
+
+    def _accepting_files(self) -> bool:
+        return not self.busy and not self.match_var.get()
+
+    def _on_drop(self, event: Any) -> str:
+        if not self._accepting_files():
+            return "refuse_drop"
+        paths = list(self.root.tk.splitlist(event.data))
+        file = first_supported(paths)
+        if file is None:
+            self._set_status("Not a supported file. Use: " + ", ".join(sorted(SUPPORTED_TYPES)), RED)
+            return "copy"
+        self.file_var.set(str(file))
+        extra = f" (only the first of {len(paths)} files is used)" if len(paths) > 1 else ""
+        self._set_status(f"Source file set: {file.name}{extra}.")
+        log.info("User: dropped %s", file)
+        return "copy"
+
+    def paste_image(self) -> bool:
+        """Use a copied image (or a copied image file) as the source file. True if one was found."""
+        if not self._accepting_files():
+            return False
+        try:
+            from PIL import ImageGrab
+
+            clip = ImageGrab.grabclipboard()
+        except Exception:  # noqa: BLE001 - an unreadable clipboard is just "no image"
+            log.exception("Add data: could not read the clipboard")
+            return False
+        if isinstance(clip, list):  # files copied in File Explorer
+            file = first_supported(clip)
+            if file is None:
+                return False
+            self.file_var.set(str(file))
+            self._set_status(f"Source file set: {file.name}.")
+        elif clip is not None and hasattr(clip, "save"):
+            path = save_pasted_image(clip, PROJECT_DIR / PASTE_DIR_NAME)
+            self.file_var.set(str(path))
+            self._set_status(f"Pasted image ready ({clip.width} x {clip.height}): it is the source file.")
+        else:
+            return False
+        log.info("User: pasted %s", self.file_var.get())
+        return True
+
+    def paste_button(self) -> None:
+        if not self.paste_image() and self._accepting_files():
+            self._set_status("The clipboard holds no image. Copy an image or take a screenshot first.", RED)
+
+    def _clipboard_has_text(self) -> bool:
+        try:
+            return bool(self.root.clipboard_get().strip())
+        except tk.TclError:
+            return False
+
+    def _paste_in_box(self, _event: Any) -> str | None:
+        """In a text box, text pastes as usual; an image (no text on the clipboard) becomes the source file."""
+        if self._clipboard_has_text():
+            return None
+        return "break" if self.paste_image() else None
+
+    def _paste_anywhere(self, event: Any) -> str | None:
+        """Ctrl+V outside the text boxes pastes a copied image as the source file."""
+        widget = event.widget
+        if isinstance(widget, tk.Text) or (isinstance(widget, tk.Entry) and not isinstance(widget, ttk.Combobox)):
+            return None  # handled by the box's own <<Paste>> binding
+        self.paste_button()
+        return "break"
+
+    def _update_preview(self) -> None:
+        """Show a thumbnail of the chosen image (nothing for other files)."""
+        path = Path(self.file_var.get().strip().strip('"'))
+        self.preview_image = None
+        if path.suffix.lower() in IMAGE_TYPES and path.is_file():
+            try:
+                from PIL import Image, ImageTk
+
+                with Image.open(path) as picture:
+                    picture.thumbnail(PREVIEW_SIZE)
+                    self.preview_image = ImageTk.PhotoImage(picture)
+            except Exception:  # noqa: BLE001 - no preview for an unreadable image
+                log.exception("Add data: no preview for %s", path)
+        self.preview.configure(image=self.preview_image or "")
+        if self.preview_image is not None:
+            self.drop_hint.configure(text=f"Image: {path.name}\nDrop or paste another image to replace it.")
+        else:
+            self.drop_hint.configure(text=self._drop_hint_text())
 
     def _label(self, parent: tk.Frame, text: str, row: int, columnspan: int = 1,
                pady: tuple[int, int] | int = 6) -> None:
@@ -757,7 +915,7 @@ class AddDataWindow:
         """Enable the page inputs, unless busy or Match GitHub is checked (no page work then)."""
         matching = self.match_var.get()
         state = "disabled" if self.busy or matching else "normal"
-        for widget in (self.browse_btn, self.file_entry, self.view_btn, self.github_check,
+        for widget in (self.browse_btn, self.paste_btn, self.file_entry, self.view_btn, self.github_check,
                        self.instructions, self.text, self.new_title_entry):
             widget.configure(state=state)
         self.page_box.configure(state="disabled" if self.busy or matching else "readonly")
@@ -1054,9 +1212,20 @@ class ResultWindow:
         win.bind("<Escape>", lambda _e: win.destroy())
 
 
+def make_root() -> tk.Tk:
+    """Main window with drag and drop of files (plain window if tkinterdnd2 is missing or fails)."""
+    try:
+        from tkinterdnd2 import TkinterDnD
+
+        return TkinterDnD.Tk()
+    except Exception:  # noqa: BLE001 - drag and drop is optional; Ctrl+V and Browse still work
+        log.warning("Add data: drag and drop unavailable (tkinterdnd2)", exc_info=True)
+        return tk.Tk()
+
+
 def run(config: dict[str, Any]) -> None:
     """Open the KNOWLEDGE BANK ADD DATA window."""
-    root = tk.Tk()
+    root = make_root()
     AddDataWindow(root, config)
     root.mainloop()
 

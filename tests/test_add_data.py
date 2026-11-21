@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import zipfile
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 
 import pytest
@@ -18,12 +18,14 @@ from tools.add_data import (
     claude_args,
     docx_to_text,
     files_changed_since,
+    first_supported,
     git,
     github_state,
     list_pages,
     match_github,
     prepare_material,
     safe_name,
+    save_pasted_image,
     xlsx_to_text,
 )
 
@@ -284,3 +286,24 @@ def test_match_github_never_overwrites_newer_github(local_and_github: tuple[Path
     with pytest.raises(RuntimeError, match="newer commit"):
         match_github(local)
     assert (local / "page.html").read_text(encoding="utf-8") == "local edit"  # nothing changed
+
+
+def test_first_supported_file_is_picked_from_a_drop(tmp_path: Path) -> None:
+    note = tmp_path / "notes.zip"
+    note.write_bytes(b"x")
+    picture = tmp_path / "my picture.PNG"
+    picture.write_bytes(b"x")
+    assert first_supported([str(note), str(tmp_path / "missing.png"), f'"{picture}"']) == picture
+    assert first_supported([str(note)]) is None
+
+
+def test_pasted_image_is_saved_as_png_and_replaces_the_previous_one(tmp_path: Path) -> None:
+    from PIL import Image
+
+    folder = tmp_path / "paste"
+    first = save_pasted_image(Image.new("RGB", (4, 3), "blue"), folder, datetime(2026, 11, 21, 9, 30, 0))
+    assert first.name == "pasted_image_20261121_093000.png"
+    second = save_pasted_image(Image.new("CMYK", (4, 3)), folder, datetime(2026, 11, 21, 9, 31, 0))
+    assert not first.exists() and second.exists()
+    with Image.open(second) as saved:
+        assert saved.format == "PNG" and saved.size == (4, 3)
