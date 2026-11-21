@@ -244,7 +244,8 @@ document.addEventListener('DOMContentLoaded', function () {
 // A result opens its page with ?q=<words>&b=<block>: the words are highlighted, the box holding
 // them is expanded, and the page scrolls to it (b=top: a title match, the page opens at the top).
 var KB_SEARCH = (function () {
-  var CACHE_KEY = 'kb-search-v2';
+  // One cache per site: several sites share the github.io origin (and its sessionStorage).
+  var CACHE_KEY = 'kb-search-v2:' + new URL(KB_ROOT || './', location.href).pathname;
   var CACHE_MINUTES = 10;
   var MAX_RESULTS = 40;
   var site = null; // promise of [{name, href, blocks: [{title, text}]}]
